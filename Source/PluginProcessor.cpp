@@ -2,6 +2,7 @@
   ==============================================================================
 
   This file contains the basic framework code for a JUCE plugin processor.
+  Created from Music 320c starter code, which builds on JUCE examples.
 
   ==============================================================================
 */
@@ -45,6 +46,8 @@ const juce::String PluginProcessor::getName() const
 {
   return JucePlugin_Name;
 }
+
+// Set these in Projucer:
 
 bool PluginProcessor::acceptsMidi() const
 {
@@ -141,20 +144,6 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 }
 #endif
 
-void PluginProcessor:: updatePitchClassesPresent(int keyNum)
-{
-  int inc = 1;
-  if (keyNum < 0) {
-    keyNum = - keyNum;
-    inc = -1;
-  }
-  while (keyNum >= 12) {
-    keyNum -= 12;
-  }
-  pitchClassesPresent.at(keyNum) += inc;
-  jassert(pitchClassesPresent.at(keyNum) >= 0);
-}
-
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
   // PROCESS MIDI DATA
@@ -172,13 +161,10 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
       time = m.getTimeStamp();
       auto description = m.getDescription();
       std::cout << "MIDI EVENT:" << description << "\n";
-      float centsSharp = 150.0f; // EXAMPLE: Shift pitch up one semitone + one quarter tone
-      if (m.isNoteOn()) {
+      if (m.isNoteOn()) { // exercise MIDI out (placeholder example):
         int noteNumber = m.getNoteNumber();
-        updatePitchClassesPresent(noteNumber);
         float noteFreqHz = m.getMidiNoteInHertz(noteNumber);
-        // Implementation: return frequencyOfA * std::pow (2.0, (noteNumber - 69) / 12.0);
-        float newFreqHz = noteFreqHz * powf(2.0f, centsSharp/1200.0f);
+        float newFreqHz = noteFreqHz * 1.5f; // Shift it up a 5th for fun
         // Where is the function for converting frequency in Hz to integer note number + pitchBend?:
         float newNoteNumberFloat = 69.0f + 12.0f * std::log2(newFreqHz/440.0f);
         float newNoteNumberFloor = floorf(newNoteNumberFloat);
@@ -192,7 +178,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         //PM: m = juce::MidiMessage::noteOn(m.getChannel(), int(newNoteNumberFloor), m.getVelocity()); // addEvent below
   } else if (m.isNoteOff()) {
         // Cancel pitchbend?
-        updatePitchClassesPresent(-m.getNoteNumber());
       } else if (m.isAftertouch()) {
         // Do something with aftertouch?
       } else if (m.isPitchWheel()) {
