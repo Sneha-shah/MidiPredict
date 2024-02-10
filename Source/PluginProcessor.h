@@ -8,7 +8,6 @@
 
 #pragma once
 
-#define JUCE_SILENCE_XCODE_15_LINKER_WARNING
 #define JUCE_UNIT_TESTS (1)
 
 #include <JuceHeader.h>
@@ -81,6 +80,9 @@ private:
 
   void updatePitchClassesPresent(int noteNumber);
   juce::MidiKeyboardState midiKeyboardState;
+
+  void runUnitTests(bool runAll = false);
+
   //==============================================================================
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)
 };
