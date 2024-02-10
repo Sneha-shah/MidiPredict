@@ -8,6 +8,9 @@
 
 #pragma once
 
+#define JUCE_SILENCE_XCODE_15_LINKER_WARNING
+#define JUCE_UNIT_TESTS (1)
+
 #include <JuceHeader.h>
 
 #define USE_PGM (1)
