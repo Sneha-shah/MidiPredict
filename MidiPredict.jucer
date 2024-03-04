@@ -5,6 +5,8 @@
               pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginProducesMidiOut,pluginWantsMidiIn">
   <MAINGROUP id="mVhDvy" name="MidiPredict">
     <GROUP id="{49B881B5-C7D8-C1DE-0A04-C6B5625FBD68}" name="Source">
+      <FILE id="eqdp84" name="FoleysSynth.cpp" compile="1" resource="0" file="Source/FoleysSynth.cpp"/>
+      <FILE id="Yz7ddV" name="FoleysSynth.h" compile="0" resource="0" file="Source/FoleysSynth.h"/>
       <FILE id="iXU5Ax" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="CYwZLG" name="PluginProcessor.h" compile="0" resource="0"

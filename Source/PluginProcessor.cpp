@@ -8,12 +8,78 @@
 */
 
 #include "PluginProcessor.h"
+//#include "PresetListBox.h"
 
 #if USE_PGM == 0
 #include "PluginEditor.h"
 #endif
 
 //==============================================================================
+
+//static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
+//{
+//    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+//    FoleysSynth::addADSRParameters (layout);
+//    FoleysSynth::addOvertoneParameters (layout);
+//    FoleysSynth::addGainParameters (layout);
+//    return layout;
+//}
+
+//==============================================================================
+
+//PluginProcessor::PluginProcessor()  // xtor
+//: foleys::MagicProcessor (juce::AudioProcessor::BusesProperties()
+//                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)), treeState (*this, nullptr, ProjectInfo::projectName, createParameterLayout())
+//{
+//  FOLEYS_SET_SOURCE_PATH (__FILE__);
+//
+//  auto file = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+//      .getChildFile ("Contents")
+//      .getChildFile ("Resources")
+//      .getChildFile ("MidiPredict.xml");
+//
+//  if (file.existsAsFile())
+//      magicState.setGuiValueTree (file);
+////  else
+////      exit(1);
+//
+//  // MAGIC GUI: add a meter at the output
+//  outputMeter  = magicState.createAndAddObject<foleys::MagicLevelSource>("output");
+//  oscilloscope = magicState.createAndAddObject<foleys::MagicOscilloscope>("waveform");
+//
+//  analyser     = magicState.createAndAddObject<foleys::MagicAnalyser>("analyser");
+//  magicState.addBackgroundProcessing (analyser);
+//
+////  presetList = magicState.createAndAddObject<PresetListBox>("presets");
+////  presetList->onSelectionChanged = [&](int number)
+////  {
+////      loadPresetInternal (number);
+////  };
+////  magicState.addTrigger ("save-preset", [this]
+////  {
+////      savePresetInternal();
+////  });
+//
+//  magicState.setApplicationSettingsFile (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+//                                         .getChildFile (ProjectInfo::companyName)
+//                                         .getChildFile (ProjectInfo::projectName + juce::String (".settings")));
+//
+//  magicState.setPlayheadUpdateFrequency (30);
+//
+//  FoleysSynth::FoleysSound::Ptr sound (new FoleysSynth::FoleysSound (treeState));
+//  synthesiser.addSound (sound);
+//
+//  for (int i=0; i < 16; ++i)
+//      synthesiser.addVoice (new FoleysSynth::FoleysVoice (treeState));
+//
+//
+//
+//
+//    #if JUCE_UNIT_TESTS
+//      runUnitTests();
+//    #endif
+//}
+
 PluginProcessor::PluginProcessor() // xtor
 #ifndef JucePlugin_PreferredChannelConfigurations
   :
@@ -111,10 +177,105 @@ void PluginProcessor::changeProgramName (int index, const juce::String& newName)
 }
 
 //==============================================================================
+
+std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sampleRate, int blockSize)
+{
+    juce::MidiFile midiFileData;
+    juce::MidiBuffer loadedMidiBuffer;
+
+    juce::FileInputStream fileInputStream(midiFile);
+
+    if (fileInputStream.openedOk())
+    {
+        if (midiFileData.readFrom(fileInputStream))
+        {
+            midiFileData.convertTimestampTicksToSeconds();
+            int numBlocks = static_cast<int>(midiFileData.getLastTimestamp() * sampleRate / blockSize) + 1;
+            std::vector<juce::MidiBuffer> midiBuffers(numBlocks);
+
+            for (int trackIndex = 0; trackIndex < midiFileData.getNumTracks(); ++trackIndex)
+            {
+                const juce::MidiMessageSequence& track = *midiFileData.getTrack(trackIndex);
+
+                for (int eventIndex = 0; eventIndex < track.getNumEvents(); ++eventIndex)
+                {
+                    const juce::MidiMessage& midiMessage = track.getEventPointer(eventIndex)->message;
+                    double timeStamp = midiMessage.getTimeStamp();
+                    
+                    int blockIndex = static_cast<int>(timeStamp * sampleRate / blockSize);
+
+                    // Create a buffer for this block if not created yet
+                    if (midiBuffers[blockIndex].isEmpty())
+                    {
+                        midiBuffers[blockIndex] = juce::MidiBuffer();
+                    }
+
+                    // Add the MIDI message to the buffer for the corresponding block
+                    midiBuffers[blockIndex].addEvent(midiMessage, static_cast<int>(timeStamp * sampleRate) % blockSize);
+                }
+            }
+
+            return midiBuffers;
+        }
+        else
+        {
+            juce::Logger::writeToLog("Error reading MIDI file: " + midiFile.getFullPathName());
+        }
+    }
+    else
+    {
+        juce::Logger::writeToLog("Error opening MIDI file: " + midiFile.getFullPathName());
+    }
+
+    // Return an empty vector in case of an error
+    return {};
+}
+
+
 void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
   // Use this method as the place to do any pre-playback
   // initialisation that you need..
+    
+    // First reading midi file for recorded practice performance
+    std::cout << "Samples per Block = " << samplesPerBlock << "\n";
+    std::cout << "SampleRate = " << sampleRate << "\n";
+    std::cout << "Number of blocks per second = " << sampleRate/samplesPerBlock << "\n";
+    juce::File myMidiFile = juce::File("/Users/snehashah/Desktop/Research...../midi_prediction/MidiPredict/ladispute.mid");
+    recordedMidi = readMIDIFile(myMidiFile, sampleRate, samplesPerBlock);
+    currentBufferIndex = 0;
+    
+    // Setting lag and processing outputs till then?
+    lag = 20;
+    for(int i=0; i<lag; i++)
+    {
+        prevPredictions.push_back(recordedMidi[currentBufferIndex]);
+        ++currentBufferIndex;
+    }
+    predictionBufferIndex = 0;
+    
+    synthesiser.setCurrentPlaybackSampleRate(sampleRate);
+
+    
+//    // Testing that the reading is correct by printing out 100 blocks of data (~1.2 seconds)
+//    juce::MidiMessage m;
+//    juce::int32 count = 0;
+//    for(auto midiBuffer : recordedMidi)
+//    {
+//        count++;
+//        for (const auto meta : midiBuffer)
+//        {
+//            std::cout << "Block number " << count << "\n";
+//            m = meta.getMessage();
+//            auto description = m.getDescription();
+//            std::cout << "MIDI EVENT:" << description << "\n";
+//        }
+//        if(count>=100)
+//        {
+//            std::cout << "Ending after 100 blocks\n\n";
+//            break;
+//        }
+//    }
 }
 
 void PluginProcessor::releaseResources()
@@ -151,46 +312,87 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-  // PROCESS MIDI DATA
+    // PROCESS MIDI DATA
+//    juce::MidiBuffer processedMidi;
+    int time;
+    juce::MidiMessage m;
+//    juce::MidiMessage pitchbendMessage;
+//    float pitchbendRangeInSemitones = 2.0f; // THIS HAS TO AGREE WITH YOUR YOUR SYNTH ENGINE
+    
 
-  juce::MidiBuffer processedMidi;
-  int time;
-  juce::MidiMessage m;
-  juce::MidiMessage pitchbendMessage;
-  float pitchbendRangeInSemitones = 2.0f; // THIS HAS TO AGREE WITH YOUR YOUR SYNTH ENGINE
-  // Obsolete API (which still works): for (MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, time);)
-  for (const auto meta : midiMessages)
+    // Source 1 (history) midiRecorded
+    // 1) Process it block by block here :
+    juce::MidiBuffer& recordedBuffer = recordedMidi[currentBufferIndex];
+    ++currentBufferIndex;
+//    if (currentBufferIndex >= recordedMidi.size())
+//    {
+//        recordedBuffer = midiMessages;
+//        --currentBufferIndex;
+//    }
+    // 2) Send processed prediction for playback : midiPrediction
+    juce::MidiBuffer midiPrediction {};
+    
+    // Temporarily, Source 2 from keyboard:
+    // 1) Create a delayed input at some latency (say 50ms) : delayed_realtime
+    // 2) Use as is for playback
+    
+    // Predictions:
+    // 1. Playback midi file as is
+    // 2. Playback midi file, and if missing input from keyboard, pause playback
+    // 3. Implement tempo tracking:
+    //     tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
+    // 4.
+    
+    
+    // MAGIC GUI: send midi messages to the keyboard state and MidiLearn
+    magicState.processMidiBuffer (midiMessages, buffer.getNumSamples(), true);
+    // MAGIC GUI: send playhead information to the GUI
+    magicState.updatePlayheadInformation (getPlayHead());
+
+    // Obsolete API (which still works): for (MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, time);)
+    for (const auto meta : recordedBuffer)
     {
-      m = meta.getMessage();
-      midiKeyboardState.processNextMidiEvent(m); // Let PGM display current note
-      time = m.getTimeStamp();
-      auto description = m.getDescription();
-      std::cout << "MIDI EVENT:" << description << "\n";
-      if (m.isNoteOn()) { // exercise MIDI out (placeholder example):
-        int noteNumber = m.getNoteNumber();
-        float noteFreqHz = m.getMidiNoteInHertz(noteNumber);
-        float newFreqHz = noteFreqHz * 1.5f; // Shift it up a 5th for fun
-        // Where is the function for converting frequency in Hz to integer note number + pitchBend?:
-        float newNoteNumberFloat = 69.0f + 12.0f * std::log2(newFreqHz/440.0f);
-        float newNoteNumberFloor = floorf(newNoteNumberFloat);
-        float pitchBendNN = newNoteNumberFloat - newNoteNumberFloor;
-        if (fabsf(pitchBendNN) > 3.0f/1200.0f) { // 3 cents is a pretty reasonable difference-limen for fundamental frequency
-          // Send pitchBend message
-          juce::uint16 pitchWheelPosition = juce::MidiMessage::pitchbendToPitchwheelPos (pitchBendNN, pitchbendRangeInSemitones);
-          pitchbendMessage = juce::MidiMessage::pitchWheel(m.getChannel(), pitchWheelPosition);
-          processedMidi.addEvent (pitchbendMessage, time);
+        m = meta.getMessage();
+//        midiKeyboardState.processNextMidiEvent(m); // Let PGM display current note
+        time = m.getTimeStamp();
+        auto description = m.getDescription();
+        std::cout << "MIDI EVENT:" << description << "\n";
+        
+        // 1. Simplest prediction case - playback recording as is
+        midiPrediction.addEvent (m, time);
+        
+        // 2. Implement tempo tracking pt 1: (tempo estimation using number of notes played so far)
+        // tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
+        num_notes_recorded = 0; // TO DO: update with prediction buffer (prevPredictions[predictionBufferIndex])
+        num_notes_network = 0; // TO DO: update with curr buffer (midiMessages)
+        float tempo_prac;
+        float tempo_network = num_notes_network/ num_notes_recorded; // tempo estimation using number of notes played so far as compared to recording.
+        tempo_prac = alpha*tempo_prac_prev + (1-alpha) * tempo_network;
+        tempo_prac_prev = tempo_prac;
+        
+        if (m.isNoteOn()) { // exercise MIDI out
+        } else if (m.isNoteOff()) {
+            // Cancel pitchbend?
+        } else if (m.isAftertouch()) {
+            // Do something with aftertouch?
+        } else if (m.isPitchWheel()) {
+            // You could save the last note number and add pitchbend to that and convert according to your transformation
         }
-        m = juce::MidiMessage::noteOn(m.getChannel(), int(newNoteNumberFloor), m.getVelocity()); // addEvent below
-  } else if (m.isNoteOff()) {
-        // Cancel pitchbend?
-      } else if (m.isAftertouch()) {
-        // Do something with aftertouch?
-      } else if (m.isPitchWheel()) {
-        // You could save the last note number and add pitchbend to that and convert according to your transformation
-      }
-      processedMidi.addEvent (m, time);
     }
-  midiMessages.swapWith (processedMidi);
+    
+    // play prediction notes using synthesizer
+//    synthesiser.renderNextBlock (buffer, prevPredictions[predictionBufferIndex], 0, buffer.getNumSamples());
+    midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // need to do this?
+    prevPredictions[predictionBufferIndex] = midiPrediction;
+    predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
+
+//    for (int i = 1; i < buffer.getNumChannels(); ++i)
+//        buffer.copyFrom (i, 0, buffer.getReadPointer (0), buffer.getNumSamples());
+//
+//    // MAGIC GUI: send the finished buffer to the level meter
+//    outputMeter->pushSamples (buffer);
+//    oscilloscope->pushSamples (buffer);
+//    analyser->pushSamples (buffer);
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

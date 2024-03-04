@@ -8,9 +8,10 @@
 
 #pragma once
 
-#define JUCE_UNIT_TESTS (1)
+#define JUCE_UNIT_TESTS (0)
 
 #include <JuceHeader.h>
+//#include "/Users/snehashah/Desktop/MUS320C_FAUST/320c-starter-code/PluginGuiMagic/JUCE/modules/juce_audio_basics/synthesisers/juce_Synthesiser.h"
 
 #define USE_PGM (1)
 
@@ -82,6 +83,26 @@ private:
   juce::MidiKeyboardState midiKeyboardState;
 
   void runUnitTests(bool runAll = false);
+    
+  std::vector<juce::MidiBuffer> recordedMidi;
+  int currentBufferIndex;
+  int lag; // in number of blocks
+  std::vector<juce::MidiBuffer> prevPredictions;
+  int predictionBufferIndex;
+  float tempo_prac_prev;
+  float num_notes_recorded;
+  float num_notes_network;
+  float alpha; // alpha fo rtempo estimation
+    
+//    juce::AudioProcessorValueTreeState treeState;
+    juce::Synthesiser      synthesiser;
+//    juce::ValueTree  presetNode;
+    // GUI MAGIC: define that as last member of your AudioProcessor
+//    foleys::MagicLevelSource*   outputMeter  = nullptr;
+//    foleys::MagicPlotSource*    oscilloscope = nullptr;
+//    foleys::MagicPlotSource*    analyser     = nullptr;
+
+//    PresetListBox*              presetList   = nullptr;
 
   //==============================================================================
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PluginProcessor)

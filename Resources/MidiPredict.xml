@@ -2,6 +2,7 @@
 
 <magic>
   <View id="root" resizable="1" resize-corner="1" flex-direction="column">
+    <KeyboardComponent/>
     <Label text="USAGE: Play a MIDI file synchronized to live incoming MIDI"
            font-size="24" max-height="50" id="USAGE"/>
     <View class="parameters nomargin" flex-direction="row" max-width="150"
