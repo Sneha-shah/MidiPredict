@@ -11,6 +11,14 @@
             file="Source/PluginProcessor.cpp"/>
       <FILE id="CYwZLG" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
+      <FILE id="FXpfUn" name="SineWaveSound.cpp" compile="1" resource="0"
+            file="Source/SineWaveSound.cpp"/>
+      <FILE id="vSKzUJ" name="SineWaveVoice.cpp" compile="1" resource="0"
+            file="Source/SineWaveVoice.cpp"/>
+      <FILE id="JmK77e" name="SynthAudioSource.cpp" compile="1" resource="0"
+            file="Source/SynthAudioSource.cpp"/>
+      <FILE id="ute2kI" name="SynthAudioSource.h" compile="0" resource="0"
+            file="Source/SynthAudioSource.h"/>
     </GROUP>
     <GROUP id="{70F08FD7-80A1-8310-73F4-3E001B6AF4C6}" name="Resources">
       <FILE id="MQJbPU" name="MidiPredict.xml" compile="0" resource="1" file="Resources/MidiPredict.xml"/>

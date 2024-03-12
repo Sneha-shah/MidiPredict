@@ -11,7 +11,7 @@
 #define JUCE_UNIT_TESTS (0)
 
 #include <JuceHeader.h>
-//#include "/Users/snehashah/Desktop/MUS320C_FAUST/320c-starter-code/PluginGuiMagic/JUCE/modules/juce_audio_basics/synthesisers/juce_Synthesiser.h"
+#include "SynthAudioSource.cpp"
 
 #define USE_PGM (1)
 
@@ -96,6 +96,7 @@ private:
     
 //    juce::AudioProcessorValueTreeState treeState;
     juce::Synthesiser      synthesiser;
+    SynthAudioSource synthAudioSource;
 //    juce::ValueTree  presetNode;
     // GUI MAGIC: define that as last member of your AudioProcessor
 //    foleys::MagicLevelSource*   outputMeter  = nullptr;

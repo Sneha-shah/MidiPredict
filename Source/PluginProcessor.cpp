@@ -255,6 +255,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     predictionBufferIndex = 0;
     
     synthesiser.setCurrentPlaybackSampleRate(sampleRate);
+    synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
 
     
 //    // Testing that the reading is correct by printing out 100 blocks of data (~1.2 seconds)
