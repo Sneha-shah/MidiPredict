@@ -9,7 +9,7 @@
 */
 
 #include <JuceHeader.h>
-#include "SineWaveSound.cpp"
+//#include "SineWaveSound.cpp"
 #include "SineWaveVoice.cpp"
 
 class SynthAudioSource   : public juce::AudioSource
@@ -17,6 +17,15 @@ class SynthAudioSource   : public juce::AudioSource
 public:
     SynthAudioSource (juce::MidiKeyboardState& keyState)
         : keyboardState (keyState)
+    {
+        for (auto i = 0; i < 4; ++i)                // [1]
+            synth.addVoice (new SineWaveVoice());
+ 
+        synth.addSound (new SineWaveSound());       // [2]
+    }
+    
+    SynthAudioSource ()
+        : keyboardState (initialMidiKeyboardState)
     {
         for (auto i = 0; i < 4; ++i)                // [1]
             synth.addVoice (new SineWaveVoice());
@@ -48,13 +57,26 @@ public:
         synth.renderNextBlock (*bufferToFill.buffer, incomingMidi,
                                bufferToFill.startSample, bufferToFill.numSamples); // [5]
     }
+
+    void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill, juce::MidiBuffer incomingMidi)
+    {
+        bufferToFill.clearActiveBufferRegion();
+
+//        juce::MidiBuffer incomingMidi;
+//        keyboardState.processNextMidiBuffer (incomingMidi, bufferToFill.startSample,
+//                                             bufferToFill.numSamples, true);       // [4]
+
+        synth.renderNextBlock (*bufferToFill.buffer, incomingMidi,
+                               bufferToFill.startSample, bufferToFill.numSamples); // [5]
+    }
     
     juce::MidiMessageCollector* getMidiCollector()
-        {
-            return &midiCollector;
-        }
+    {
+        return &midiCollector;
+    }
  
 private:
+    juce::MidiKeyboardState initialMidiKeyboardState;
     juce::MidiKeyboardState& keyboardState;
     juce::Synthesiser synth;
     juce::MidiMessageCollector midiCollector;

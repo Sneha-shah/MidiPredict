@@ -283,6 +283,7 @@ void PluginProcessor::releaseResources()
 {
   // When playback stops, you can use this as an opportunity to free up any
   // spare memory, etc.
+    synthAudioSource.releaseResources();
 }
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -382,7 +383,13 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
     
     // play prediction notes using synthesizer
+    juce::AudioSourceChannelInfo bufferInfo;
+    bufferInfo.buffer = &buffer;  // Assuming buffer is your AudioBuffer<float>
+    bufferInfo.startSample = 0;
+    bufferInfo.numSamples = buffer.getNumSamples();
 //    synthesiser.renderNextBlock (buffer, prevPredictions[predictionBufferIndex], 0, buffer.getNumSamples());
+    synthAudioSource.getNextAudioBlock(bufferInfo, prevPredictions[predictionBufferIndex]);
+    
     midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // need to do this?
     prevPredictions[predictionBufferIndex] = midiPrediction;
     predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
