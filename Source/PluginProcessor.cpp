@@ -241,7 +241,8 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     std::cout << "Samples per Block = " << samplesPerBlock << "\n";
     std::cout << "SampleRate = " << sampleRate << "\n";
     std::cout << "Number of blocks per second = " << sampleRate/samplesPerBlock << "\n";
-    juce::File myMidiFile = juce::File("/Users/snehashah/Desktop/Research...../midi_prediction/MidiPredict/ladispute.mid");
+    juce::File myMidiFileSneha = juce::File("/Users/snehashah/Desktop/Research...../midi_prediction/MidiPredict/ladispute.mid");
+    juce::File myMidiFile = juce::File("/l/midi/DavesJSBachPage/bwv_1060.mid");
     recordedMidi = readMIDIFile(myMidiFile, sampleRate, samplesPerBlock);
     currentBufferIndex = 0;
     
@@ -388,9 +389,12 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     bufferInfo.startSample = 0;
     bufferInfo.numSamples = buffer.getNumSamples();
 //    synthesiser.renderNextBlock (buffer, prevPredictions[predictionBufferIndex], 0, buffer.getNumSamples());
-    synthAudioSource.getNextAudioBlock(bufferInfo, prevPredictions[predictionBufferIndex]);
-    
-    midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // need to do this?
+    synthAudioSource.getNextAudioBlock(bufferInfo,
+                                       //JOS: prevPredictions[predictionBufferIndex]);
+                                       midiPrediction);
+
+  // midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // need to do this?
+  // JOS: Yes, when we want the plugin to forward it (Midi Filter Plugin case)
     prevPredictions[predictionBufferIndex] = midiPrediction;
     predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
 

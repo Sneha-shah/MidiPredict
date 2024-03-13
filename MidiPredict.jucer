@@ -2,7 +2,8 @@
 
 <JUCERPROJECT id="m2cmFe" name="MidiPredict" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1"
-              pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginProducesMidiOut,pluginWantsMidiIn">
+              pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginIsSynth,pluginProducesMidiOut,pluginWantsMidiIn"
+              pluginFormats="buildAU,buildStandalone">
   <MAINGROUP id="mVhDvy" name="MidiPredict">
     <GROUP id="{49B881B5-C7D8-C1DE-0A04-C6B5625FBD68}" name="Source">
       <FILE id="eqdp84" name="FoleysSynth.cpp" compile="1" resource="0" file="Source/FoleysSynth.cpp"/>
