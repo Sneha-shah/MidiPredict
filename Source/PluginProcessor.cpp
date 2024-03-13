@@ -89,12 +89,10 @@ PluginProcessor::PluginProcessor() // xtor
   AudioProcessor
 #endif
   (BusesProperties()
-#if ! JucePlugin_IsMidiEffect
 #if ! JucePlugin_IsSynth
                     .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
 #endif
                     .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-#endif
                     )
 #endif
 {
@@ -241,7 +239,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     std::cout << "Samples per Block = " << samplesPerBlock << "\n";
     std::cout << "SampleRate = " << sampleRate << "\n";
     std::cout << "Number of blocks per second = " << sampleRate/samplesPerBlock << "\n";
-    juce::File myMidiFile = juce::File("/Users/snehashah/Desktop/Research...../midi_prediction/MidiPredict/ladispute.mid");
+    juce::File myMidiFile = juce::File("/Users/snehashah/Desktop/Research...../midi_prediction/MidiPredict/Resources/ladispute.mid");
     recordedMidi = readMIDIFile(myMidiFile, sampleRate, samplesPerBlock);
     currentBufferIndex = 0;
     
@@ -289,10 +287,11 @@ void PluginProcessor::releaseResources()
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
-#if JucePlugin_IsMidiEffect
-  juce::ignoreUnused (layouts);
-  return true;
-#else
+    std::cout << "ndef JucePlugin_PreferredChannelConfigurations";
+//#if JucePlugin_IsMidiEffect
+//  juce::ignoreUnused (layouts);
+//  return true;
+//#else
   // This is the place where you check if the layout is supported.
   // In this template code we only support mono or stereo.
   // Some plugin hosts, such as certain GarageBand versions, will only
@@ -308,7 +307,7 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 #endif
 
   return true;
-#endif
+//#endif
 }
 #endif
 
