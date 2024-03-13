@@ -290,6 +290,7 @@ void PluginProcessor::releaseResources()
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
+  std::cout << "ndef JucePlugin_PreferredChannelConfigurations";
 #if JucePlugin_IsMidiEffect
   juce::ignoreUnused (layouts);
   return true;
@@ -392,7 +393,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     synthAudioSource.getNextAudioBlock(bufferInfo,
                                        //JOS: prevPredictions[predictionBufferIndex]);
                                        midiPrediction);
-
+    
   // midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // need to do this?
   // JOS: Yes, when we want the plugin to forward it (Midi Filter Plugin case)
     prevPredictions[predictionBufferIndex] = midiPrediction;
