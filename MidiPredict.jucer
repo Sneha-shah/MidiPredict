@@ -2,7 +2,7 @@
 
 <JUCERPROJECT id="m2cmFe" name="MidiPredict" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" displaySplashScreen="1" jucerFormatVersion="1"
-              pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginIsSynth,pluginProducesMidiOut,pluginWantsMidiIn"
+              pluginCharacteristicsValue="pluginIsSynth,pluginWantsMidiIn"
               pluginFormats="buildAU,buildStandalone">
   <MAINGROUP id="mVhDvy" name="MidiPredict">
     <GROUP id="{49B881B5-C7D8-C1DE-0A04-C6B5625FBD68}" name="Source">
@@ -22,7 +22,10 @@
             file="Source/SynthAudioSource.h"/>
     </GROUP>
     <GROUP id="{70F08FD7-80A1-8310-73F4-3E001B6AF4C6}" name="Resources">
-      <FILE id="MQJbPU" name="MidiPredict.xml" compile="0" resource="1" file="Resources/MidiPredict.xml"/>
+      <FILE id="Er6osY" name="ladispute.mid" compile="0" resource="1" file="Resources/ladispute.mid"
+            xcodeResource="1"/>
+      <FILE id="MQJbPU" name="MidiPredict.xml" compile="0" resource="1" file="Resources/MidiPredict.xml"
+            xcodeResource="1"/>
     </GROUP>
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"
