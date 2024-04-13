@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 #cmake_minimum_required(VERSION 3.16)
 
-project(MinimalPluginTemplate VERSION 0.0.1)
+project(MidiPredict VERSION 0.0.1)
 
 #This is temporarily needed due to a bug in Xcode 15:
 if (CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
@@ -12,6 +12,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
 endif ()
 
 set (BaseTargetName MidiPredict)
+
 
 #----------------------------------------------------------------------------
 # From top-level:
@@ -73,6 +74,19 @@ if (BUILD_UNIT_TESTS)
     add_subdirectory(Tests)
 endif ()
 
+### PGM ###
+add_subdirectory(PGM)
+
+### BINARY DATA (requires JUCE already included, done upstairs by PGM) ###
+set (XMLTarget "${BaseTargetName}-XML")
+
+juce_add_binary_data( ${XMLTarget} SOURCES
+    Resources/MidiPredict.xml
+    Resources/ladispute.mid
+    )
+
+# Generates ./JuceLibraryCode/BinaryData.cpp
+
 #----------------------------------------------------------------------------
 
 juce_add_plugin("${BaseTargetName}"
@@ -91,6 +105,14 @@ juce_add_plugin("${BaseTargetName}"
         FORMATS AU Standalone
         PRODUCT_NAME "MidiPredict")
 
+juce_generate_juce_header (${BaseTargetName})
+
+include_directories(
+        JuceLibraryCode
+        ~/PGM/modules
+#       ~/JUCE/modules
+)
+
 target_sources(${BaseTargetName} PRIVATE
         Source/PluginProcessor.cpp
         Source/FoleysSynth.cpp
@@ -100,12 +122,23 @@ target_sources(${BaseTargetName} PRIVATE
 
 target_compile_definitions(${BaseTargetName}
         PUBLIC
+        IS_SYNTH=1
+        FOLEYS_ENABLE_BINARY_DATA=1
+        FOLEYS_SHOW_GUI_EDITOR_PALLETTE=1
+        FOLEYS_SAVE_EDITED_GUI_IN_PLUGIN_STATE=0
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0)
 
 target_link_libraries(${BaseTargetName} PRIVATE
+        ${XMLTarget}
+        foleys_gui_magic
         juce_audio_utils
         juce_midi_ci
         juce_recommended_config_flags
         juce_recommended_lto_flags
         juce_recommended_warning_flags)
+
+foreach(FORMAT ${FORMATS})
+    get_target_property(ARTEFACTS_DIR ${BaseTargetName}_${FORMAT} LIBRARY_OUTPUT_DIRECTORY)
+    add_custom_command(TARGET ${BaseTargetName}_${FORMAT} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory ${ARTEFACTS_DIR} ${COPY_FOLDER})
+endforeach()
