@@ -24,6 +24,14 @@
     <GROUP id="{70F08FD7-80A1-8310-73F4-3E001B6AF4C6}" name="Resources">
       <FILE id="Er6osY" name="ladispute.mid" compile="0" resource="1" file="Resources/ladispute.mid"
             xcodeResource="1"/>
+      <FILE id="H04GEi" name="ladispute_1.mid" compile="0" resource="1" file="Resources/ladispute_1.mid"
+            xcodeResource="1"/>
+      <FILE id="DDRHGs" name="ladispute_2.mid" compile="0" resource="1" file="Resources/ladispute_2.mid"
+            xcodeResource="1"/>
+      <FILE id="iP1r3R" name="ladispute_3.mid" compile="0" resource="1" file="Resources/ladispute_3.mid"
+            xcodeResource="1"/>
+      <FILE id="V6V7ZA" name="ladispute_4.mid" compile="0" resource="1" file="Resources/ladispute_4.mid"
+            xcodeResource="1"/>
       <FILE id="MQJbPU" name="MidiPredict.xml" compile="0" resource="1" file="Resources/MidiPredict.xml"
             xcodeResource="1"/>
     </GROUP>

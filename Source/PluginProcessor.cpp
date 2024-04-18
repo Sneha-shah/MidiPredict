@@ -232,6 +232,70 @@ std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sa
 }
 
 
+juce::MidiMessageSequence readMIDIFile(const juce::File& midiFile, double sampleRate)
+{
+    juce::MidiFile midiFileData;
+    juce::FileInputStream fileInputStream(midiFile);
+
+    if (fileInputStream.openedOk())
+    {
+        if (midiFileData.readFrom(fileInputStream))
+        {
+            midiFileData.convertTimestampTicksToSeconds();
+            juce::MidiMessageSequence loadedMidiSequence;
+
+            for (int trackIndex = 0; trackIndex < midiFileData.getNumTracks(); ++trackIndex)
+            {
+                const juce::MidiMessageSequence& track = *midiFileData.getTrack(trackIndex);
+
+                for (int eventIndex = 0; eventIndex < track.getNumEvents(); ++eventIndex)
+                {
+                    const juce::MidiMessage& midiMessage = track.getEventPointer(eventIndex)->message;
+                    double timeStamp = midiMessage.getTimeStamp();
+                    int timeStampInSamples = static_cast<int>(timeStamp * sampleRate);
+
+                    // Add the MIDI message to the sequence
+                    loadedMidiSequence.addEvent(midiMessage, timeStampInSamples);
+                }
+            }
+            return loadedMidiSequence;
+        }
+        else
+        {
+            juce::Logger::writeToLog("Error reading MIDI file: " + midiFile.getFullPathName());
+        }
+    }
+    else
+    {
+        juce::Logger::writeToLog("Error opening MIDI file: " + midiFile.getFullPathName());
+    }
+
+    // Return an empty sequence in case of an error
+    return juce::MidiMessageSequence();
+}
+
+juce::MidiBuffer PluginProcessor::generateMidiBuffer(const juce::MidiMessageSequence& midiMessageSequence, double sampleRate, int blockSize)
+{
+    juce::MidiBuffer midiBuffer;
+
+    // Iterate over the MIDI events in the sequence
+    for (int eventIndex = currentPositionRec; eventIndex < midiMessageSequence.getNumEvents(); ++eventIndex)
+    {
+        const juce::MidiMessage& midiMessage = midiMessageSequence.getEventPointer(eventIndex)->message;
+        int timeStampInSamples = midiMessage.getTimeStamp();
+
+        // Check if the event is within the range of the current sample position and two blocks ahead
+        if (timeStampInSamples < currentPositionRecSamples + 2 * blockSize)
+        {
+            // Add the MIDI message to the buffer
+            midiBuffer.addEvent(midiMessage, timeStampInSamples - currentPositionRecSamples);
+        }
+    }
+
+    return midiBuffer;
+}
+
+
 void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
   // Use this method as the place to do any pre-playback
@@ -246,21 +310,37 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
       .getChildFile ("Resources")
       .getChildFile ("ladispute.mid");
     jassert(myMidiFile.existsAsFile());
-    // juce::File myMidiFile = juce::File("/Users/snehashah/Desktop/Research...../midi_prediction/MidiPredict/ladispute.mid");
-    // juce::File myMidiFile = juce::File("/l/midi/DavesJSBachPage/bwv_1060.mid");
     recordedMidi = readMIDIFile(myMidiFile, sampleRate, samplesPerBlock);
-    currentBufferIndex = 0;
+    currentBufferIndexRec = 0;
+    currentPositionRec = 0;
+    currentPositionRecSamples = 0;
     
     // Setting lag and processing outputs till then?
-    lag = 20;
+    lag = 20; //20 blocks
     for(int i=0; i<lag; i++)
     {
-        prevPredictions.push_back(recordedMidi[currentBufferIndex]);
-        ++currentBufferIndex;
+        prevPredictions.push_back(recordedMidi[currentBufferIndexRec]);
+        currentPositionRec += recordedMidi[currentBufferIndexRec].getNumEvents();
+        currentPositionRecSamples += samplesPerBlock;
+        ++currentBufferIndexRec;
     }
     predictionBufferIndex = 0;
     
-    synthesiser.setCurrentPlaybackSampleRate(sampleRate);
+    recordedMidiSequence = readMIDIFile(myMidiFile, sampleRate);
+    if(currentPositionRec>0)
+        lastEvent = recordedMidiSequence.getEventPointer(currentPositionRec-1)->message;
+    nextEvent = recordedMidiSequence.getEventPointer(currentPositionRec)->message;
+    
+    auto myMidiFile2 = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+      .getChildFile ("Contents")
+      .getChildFile ("Resources")
+      .getChildFile ("ladispute_1.mid");
+    jassert(myMidiFile2.existsAsFile());
+    // juce::File myMidiFile = juce::File("/Users/snehashah/Desktop/Research...../midi_prediction/MidiPredict/ladispute.mid");
+    liveMidi = readMIDIFile(myMidiFile2, sampleRate, samplesPerBlock);
+    currentBufferIndexLive = 0;
+    
+//    synthesiser.setCurrentPlaybackSampleRate(sampleRate);
     synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
 
     
@@ -319,20 +399,32 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 }
 #endif
 
+void combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples = -1)
+{
+    a.addEvents(b, 0, numSamples, 0);
+    if(b.getNumEvents()>0)
+    {
+        std::cout << "Found an event";
+    }
+}
+
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     // PROCESS MIDI DATA
 //    juce::MidiBuffer processedMidi;
     int time;
     juce::MidiMessage m;
-//    juce::MidiMessage pitchbendMessage;
+//    juce::MidiMessage pitchbSendMessage;
 //    float pitchbendRangeInSemitones = 2.0f; // THIS HAS TO AGREE WITH YOUR YOUR SYNTH ENGINE
     
-
+    
     // Source 1 (history) midiRecorded
     // 1) Process it block by block here :
-    juce::MidiBuffer& recordedBuffer = recordedMidi[currentBufferIndex];
-    ++currentBufferIndex;
+    juce::MidiBuffer& recordedBuffer = recordedMidi[currentBufferIndexRec];
+    ++currentBufferIndexRec;
+    juce::MidiBuffer recordedBuffer2 = generateMidiBuffer(recordedMidiSequence, 44100, buffer.getNumSamples());
+    int prevPositionRecSamples = currentPositionRecSamples;
+    
 //    if (currentBufferIndex >= recordedMidi.size())
 //    {
 //        recordedBuffer = midiMessages;
@@ -341,34 +433,36 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // 2) Send processed prediction for playback : midiPrediction
     juce::MidiBuffer midiPrediction {};
     
-    // Temporarily, Source 2 from keyboard:
+    // Temporarily, Source 2 from file:
     // 1) Create a delayed input at some latency (say 50ms) : delayed_realtime
     // 2) Use as is for playback
-    
-    // Predictions:
-    // 1. Playback midi file as is
-    // 2. Playback midi file, and if missing input from keyboard, pause playback
-    // 3. Implement tempo tracking:
-    //     tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
-    // 4.
-    
+    juce::MidiBuffer& liveBuffer = liveMidi[currentBufferIndexLive];
+    ++currentBufferIndexLive;
     
     // MAGIC GUI: send midi messages to the keyboard state and MidiLearn
     magicState.processMidiBuffer (midiMessages, buffer.getNumSamples(), true);
     // MAGIC GUI: send playhead information to the GUI
     magicState.updatePlayheadInformation (getPlayHead());
+    
+    // Predictions:
+    // 1. Playback midi file as is DONE
+    // 2. Playback midi file, and if delayed input, pause playback
+    // 3. Implement tempo tracking:
+    //     tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
+    // 4.
 
     // Obsolete API (which still works): for (MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, time);)
     for (const auto meta : recordedBuffer)
     {
         m = meta.getMessage();
-//        midiKeyboardState.processNextMidiEvent(m); // Let PGM display current note
+        m.setNoteNumber(m.getNoteNumber()+7); // Changing key/ octave to differentiate from live performance
+        midiKeyboardState.processNextMidiEvent(m); // Let PGM display current note
         time = m.getTimeStamp();
         auto description = m.getDescription();
         std::cout << "MIDI EVENT:" << description << "\n";
         
         // 1. Simplest prediction case - playback recording as is
-        midiPrediction.addEvent (m, time);
+        // do nothing
         
         // 2. Implement tempo tracking pt 1: (tempo estimation using number of notes played so far)
         // tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
@@ -378,6 +472,21 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         float tempo_network = num_notes_network/ num_notes_recorded; // tempo estimation using number of notes played so far as compared to recording.
         tempo_prac = alpha*tempo_prac_prev + (1-alpha) * tempo_network;
         tempo_prac_prev = tempo_prac;
+        
+        // Add processed midi event to prediction buffer
+        midiPrediction.addEvent (m, time);
+        currentPositionRec += 1;
+        if(m.isNoteOn())
+        {
+//            if(lastEvent.isNoteOn())
+//                currentPositionRecSamples += nextEvent.getTimeStamp() - lastEvent.getTimeStamp(); //FIX THIS!!!
+//            else
+//                currentPositionRecSamples += nextEvent.getTimeStamp();
+            lastEvent = nextEvent;
+            nextEvent = m.withTimeStamp(m.getTimeStamp()+prevPositionRecSamples);
+        }
+//        if(currentPositionRecSamples >= prevPositionRecSamples + buffer.getNumSamples())
+//            break;
         
         if (m.isNoteOn()) { // exercise MIDI out
         } else if (m.isNoteOff()) {
@@ -394,9 +503,17 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     bufferInfo.buffer = &buffer;  // Assuming buffer is your AudioBuffer<float>
     bufferInfo.startSample = 0;
     bufferInfo.numSamples = buffer.getNumSamples();
+    // combine prevPredictions[predictionBufferIndex] and midiMessages
+    juce::MidiBuffer midiCombined; // midi file + current keyboard
+//    combineEvents(midiCombined, prevPredictions[predictionBufferIndex]); // Uses addEvents with MidiBuffer&
+//    combineEvents(midiCombined, liveBuffer);
+    combineEvents(midiCombined, midiMessages);
+    combineEvents(midiCombined, recordedBuffer2, buffer.getNumSamples());
+    currentPositionRecSamples += buffer.getNumSamples(); // FIX THIS
+    
 //    synthesiser.renderNextBlock (buffer, prevPredictions[predictionBufferIndex], 0, buffer.getNumSamples());
     synthAudioSource.getNextAudioBlock(bufferInfo,
-                                       prevPredictions[predictionBufferIndex]);
+                                       midiCombined);
     // JOS (used for debugging): midiPrediction);
 
   // midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // need to do this?

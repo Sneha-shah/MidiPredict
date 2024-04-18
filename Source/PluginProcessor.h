@@ -31,6 +31,7 @@ public:
   ~PluginProcessor() override;
 
   //==============================================================================
+  juce::MidiBuffer generateMidiBuffer(const juce::MidiMessageSequence& midiMessageSequence, double sampleRate, int blockSize);
   void prepareToPlay (double sampleRate, int samplesPerBlock) override;
   void releaseResources() override;
 
@@ -83,11 +84,18 @@ private:
   juce::MidiKeyboardState midiKeyboardState;
 
   void runUnitTests(bool runAll = false);
-    
+
   std::vector<juce::MidiBuffer> recordedMidi;
-  int currentBufferIndex;
-  int lag; // in number of blocks
   std::vector<juce::MidiBuffer> prevPredictions;
+  std::vector<juce::MidiBuffer> liveMidi;
+  juce::MidiMessageSequence recordedMidiSequence;
+  int currentBufferIndexRec;
+  int currentBufferIndexLive;
+  int currentPositionRec;
+  int currentPositionRecSamples;
+  juce::MidiMessage lastEvent;
+  juce::MidiMessage nextEvent;
+  int lag; // in number of blocks
   int predictionBufferIndex;
   float tempo_prac_prev;
   float num_notes_recorded;
@@ -95,7 +103,7 @@ private:
   float alpha; // alpha fo rtempo estimation
     
 //    juce::AudioProcessorValueTreeState treeState;
-    juce::Synthesiser      synthesiser;
+//    juce::Synthesiser      synthesiser;
     SynthAudioSource synthAudioSource;
 //    juce::ValueTree  presetNode;
     // GUI MAGIC: define that as last member of your AudioProcessor
