@@ -39,6 +39,8 @@ public:
   bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
 #endif
 
+  void combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples);
+  bool checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b);
   void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
   //==============================================================================
@@ -77,6 +79,8 @@ public:
 
 private:
 
+  bool DEBUG_FLAG = 0;
+    
   juce::String currentChord = "no Chord in Processor";
   std::array<int,12> pitchClassesPresent { 0 };
 
@@ -89,15 +93,16 @@ private:
   std::vector<juce::MidiBuffer> prevPredictions;
   std::vector<juce::MidiBuffer> liveMidi;
   juce::MidiMessageSequence recordedMidiSequence;
+  juce::MidiMessageSequence unmatchedNotes;
   int currentBufferIndexRec;
   int currentBufferIndexLive;
-  int currentPositionRec;
+  int currentPositionRecMidi;
   int currentPositionRecSamples;
   juce::MidiMessage lastEvent;
   juce::MidiMessage nextEvent;
   int lag; // in number of blocks
   int predictionBufferIndex;
-  float tempo_prac_prev;
+  float noteDensity_prac_prev;
   float num_notes_recorded;
   float num_notes_network;
   float alpha; // alpha fo rtempo estimation
