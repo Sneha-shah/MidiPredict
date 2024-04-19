@@ -27,58 +27,9 @@
 
 //==============================================================================
 
-//PluginProcessor::PluginProcessor()  // xtor
-//: foleys::MagicProcessor (juce::AudioProcessor::BusesProperties()
-//                          .withOutput ("Output", juce::AudioChannelSet::stereo(), true)), treeState (*this, nullptr, ProjectInfo::projectName, createParameterLayout())
-//{
-//  FOLEYS_SET_SOURCE_PATH (__FILE__);
-//
-//  auto file = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
-//      .getChildFile ("Contents")
-//      .getChildFile ("Resources")
-//      .getChildFile ("MidiPredict.xml");
-//
-//  if (file.existsAsFile())
-//      magicState.setGuiValueTree (file);
-////  else
-////      exit(1);
-//
-//  // MAGIC GUI: add a meter at the output
-//  outputMeter  = magicState.createAndAddObject<foleys::MagicLevelSource>("output");
-//  oscilloscope = magicState.createAndAddObject<foleys::MagicOscilloscope>("waveform");
-//
-//  analyser     = magicState.createAndAddObject<foleys::MagicAnalyser>("analyser");
-//  magicState.addBackgroundProcessing (analyser);
-//
-////  presetList = magicState.createAndAddObject<PresetListBox>("presets");
-////  presetList->onSelectionChanged = [&](int number)
-////  {
-////      loadPresetInternal (number);
-////  };
-////  magicState.addTrigger ("save-preset", [this]
-////  {
-////      savePresetInternal();
-////  });
-//
-//  magicState.setApplicationSettingsFile (juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-//                                         .getChildFile (ProjectInfo::companyName)
-//                                         .getChildFile (ProjectInfo::projectName + juce::String (".settings")));
-//
-//  magicState.setPlayheadUpdateFrequency (30);
-//
-//  FoleysSynth::FoleysSound::Ptr sound (new FoleysSynth::FoleysSound (treeState));
-//  synthesiser.addSound (sound);
-//
-//  for (int i=0; i < 16; ++i)
-//      synthesiser.addVoice (new FoleysSynth::FoleysVoice (treeState));
-//
-//
-//
-//
-//    #if JUCE_UNIT_TESTS
-//      runUnitTests();
-//    #endif
-//}
+void p50(juce::MidiMessageSequence& a, int n = 50);
+void seqVals(juce::MidiMessageSequence& a, juce::String name = "");
+void bufferVals(juce::MidiBuffer& a, juce::String name = "");
 
 PluginProcessor::PluginProcessor() // xtor
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -311,7 +262,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     auto myMidiFile = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
       .getChildFile ("Contents")
       .getChildFile ("Resources")
-      .getChildFile ("ladispute.mid");
+      .getChildFile ("ladispute_1.mid");
     jassert(myMidiFile.existsAsFile());
     recordedMidi = readMIDIFile(myMidiFile, sampleRate, samplesPerBlock);
     currentBufferIndexRec = 0;
@@ -346,6 +297,10 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     
 //    synthesiser.setCurrentPlaybackSampleRate(sampleRate);
     synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
+    
+    if (DEBUG_FLAG) {
+        p50(liveMidi);
+    }
 
     
 //    // Testing that the reading is correct by printing out 100 blocks of data (~1.2 seconds)
@@ -404,9 +359,21 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 #endif
 
 
-static void bufferVals(juce::MidiBuffer& a) {
+void bufferVals(juce::MidiBuffer& a, juce::String name) {
     for(const auto meta: a) {
-        std::cout << meta.getMessage().getDescription() << std::endl;
+        std::cout << "MIDI Event in " << name << ": " << meta.getMessage().getDescription() << std::endl;
+    }
+}
+
+void seqVals(juce::MidiMessageSequence& a, juce::String name) {
+    for(const auto meta: a) {
+        std::cout << "MIDI Event in " << name << ": " << meta->message.getDescription() << std::endl;
+    }
+}
+
+void p50(juce::MidiMessageSequence& a, int n /*= 50*/) {
+    for (int i=0; i<n; i++) {
+        std::cout << "MIDI Event: "<< a.getEventPointer(i)->message.getDescription() << std::endl;
     }
 }
 
@@ -479,6 +446,11 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b)
         return false;
     }
     else {
+        if (DEBUG_FLAG) {
+            bufferVals(b, "Live");
+            bufferVals(a, "Pred");
+            seqVals(unmatchedNotes, "unmatched");
+        }
         return true;// pause and wait till note is found
     }
 }
@@ -538,6 +510,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
 
     // Obsolete API (which still works): for (MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, time);)
+    if ( DEBUG_FLAG) {
+        bufferVals(liveBuffer,"Live");
+    }
     for (const auto meta : recordedBuffer2)
     {
         m = meta.getMessage();
@@ -546,7 +521,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         time = m.getTimeStamp();
         auto description = m.getDescription();
         if (DEBUG_FLAG)
-            std::cout << "MIDI EVENT:" << description << "\n";
+            std::cout << "MIDI EVENT rb2:" << description << "\n";
         
         if (predictionCase == 1) {
             // 1. Simplest prediction case - playback recording as is
@@ -622,7 +597,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     combineEvents(midiCombined, prevPredictions[predictionBufferIndex]); // Uses addEvents with MidiBuffer&
 //    combineEvents(midiCombined, liveBuffer);
     combineEvents(midiCombined, midiMessages);
-    currentPositionRecSamples += buffer.getNumSamples(); // FIX THIS
     
 //    synthesiser.renderNextBlock (buffer, prevPredictions[predictionBufferIndex], 0, buffer.getNumSamples());
     synthAudioSource.getNextAudioBlock(bufferInfo,
@@ -636,6 +610,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     } else {
         prevPredictions[predictionBufferIndex] = midiPrediction;
         predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
+        currentPositionRecSamples += buffer.getNumSamples(); // FIX THIS
     }
     
 //    for (int i = 1; i < buffer.getNumChannels(); ++i)
