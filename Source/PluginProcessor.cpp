@@ -27,9 +27,48 @@
 
 //==============================================================================
 
-void p50(juce::MidiMessageSequence& a, int n = 50);
-void seqVals(juce::MidiMessageSequence& a, juce::String name = "");
-void bufferVals(juce::MidiBuffer& a, juce::String name = "");
+
+void bufferVals(juce::MidiBuffer& a, juce::String name = "") {
+    std::cout << name << ":" << std::endl;
+    for(const auto meta: a) {
+        std::cout << "MIDI Event: " << meta.getMessage().getDescription() << meta.getMessage().getTimeStamp() << std::endl;
+    }
+    std::cout << "end " << name << std::endl;
+}
+
+void seqVals(juce::MidiMessageSequence& a, juce::String name = "") {
+    std::cout << name << ":" << std::endl;
+    for(const auto meta: a) {
+        std::cout << "MIDI Event: " << meta->message.getDescription() << meta->message.getTimeStamp() << std::endl;
+    }
+    std::cout << "end " << name << std::endl;
+}
+
+void p50s(juce::MidiMessageSequence& a, juce::String name = "", int n = 50) {
+    std::cout << name << ":" << std::endl;
+    for (int i=0; i<n; i++) {
+        std::cout << "MIDI Event: "<< a.getEventPointer(i)->message.getDescription() << a.getEventPointer(i)->message.getTimeStamp() << std::endl;
+    }
+    std::cout << "end " << name << std::endl;
+}
+
+void p50b(std::vector<juce::MidiBuffer>& a, juce::String name = "", int n = 50, bool tsAbs = true) {
+    std::cout << name << ":" << std::endl;
+    int count = 0;
+    int buffNum = 0;
+    for (const auto& buff: a) {
+        for(const auto meta: buff) {
+            std::cout << "MIDI Event: "<< meta.getMessage().getDescription() << (meta.getMessage().getTimeStamp())+(512*buffNum*tsAbs) << std::endl;
+            count++;
+            if(count>=n)
+                break;
+        }
+        buffNum++;
+        if(count>=n)
+            break;
+    }
+    std::cout << "end " << name << std::endl;
+}
 
 PluginProcessor::PluginProcessor() // xtor
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -151,9 +190,9 @@ std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sa
                 for (int eventIndex = 0; eventIndex < track.getNumEvents(); ++eventIndex)
                 {
                     const juce::MidiMessage& midiMessage = track.getEventPointer(eventIndex)->message;
-                    double timeStamp = midiMessage.getTimeStamp();
+                    double timeStamp_sec = midiMessage.getTimeStamp(); // seconds
                     
-                    int blockIndex = static_cast<int>(timeStamp * sampleRate / blockSize);
+                    int blockIndex = static_cast<int>(timeStamp_sec * sampleRate / blockSize);
 
                     // Create a buffer for this block if not created yet
                     if (midiBuffers[blockIndex].isEmpty())
@@ -162,7 +201,7 @@ std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sa
                     }
 
                     // Add the MIDI message to the buffer for the corresponding block
-                    midiBuffers[blockIndex].addEvent(midiMessage, static_cast<int>(timeStamp * sampleRate) % blockSize);
+                    midiBuffers[blockIndex].addEvent(midiMessage, static_cast<int>(timeStamp_sec * sampleRate) % blockSize); // timeStamp in samples
                 }
             }
 
@@ -202,11 +241,11 @@ juce::MidiMessageSequence readMIDIFile(const juce::File& midiFile, double sample
                 for (int eventIndex = 0; eventIndex < track.getNumEvents(); ++eventIndex)
                 {
                     const juce::MidiMessage& midiMessage = track.getEventPointer(eventIndex)->message;
-                    double timeStamp = midiMessage.getTimeStamp();
-                    int timeStampInSamples = static_cast<int>(timeStamp * sampleRate);
+                    double timeStamp_sec = midiMessage.getTimeStamp(); // seconds
+                    int timeStamp_samples = static_cast<int>(timeStamp_sec * sampleRate);
 
                     // Add the MIDI message to the sequence
-                    loadedMidiSequence.addEvent(midiMessage, speedShift*timeStampInSamples);
+                    loadedMidiSequence.addEvent(midiMessage, speedShift*timeStamp_samples);
                 }
             }
             return loadedMidiSequence;
@@ -233,13 +272,13 @@ juce::MidiBuffer PluginProcessor::generateMidiBuffer(const juce::MidiMessageSequ
     for (int eventIndex = currentPositionRecMidi; eventIndex < midiMessageSequence.getNumEvents(); ++eventIndex)
     {
         const juce::MidiMessage& midiMessage = midiMessageSequence.getEventPointer(eventIndex)->message;
-        int timeStampInSamples = midiMessage.getTimeStamp();
+        int timeStamp_samples = midiMessage.getTimeStamp();
 
         // Check if the event is within the range of the current sample position and two blocks ahead
-        if (timeStampInSamples < currentPositionRecSamples + 2 * blockSize)
+        if (timeStamp_samples < currentPositionRecSamples + 2 * blockSize)
         {
             // Add the MIDI message to the buffer
-            midiBuffer.addEvent(midiMessage, (timeStampInSamples - currentPositionRecSamples));
+            midiBuffer.addEvent(midiMessage, (timeStamp_samples - currentPositionRecSamples));
         }
     }
 
@@ -270,13 +309,18 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     currentPositionRecSamples = 0;
     
     // Setting lag and processing outputs till then?
-    lag = 20; //20 blocks
+    lag = 20; // num blocks
     for(int i=0; i<lag; i++)
     {
         prevPredictions.push_back(recordedMidi[currentBufferIndexRec]);
         currentPositionRecMidi += recordedMidi[currentBufferIndexRec].getNumEvents();
         currentPositionRecSamples += samplesPerBlock;
         ++currentBufferIndexRec;
+        if (DEBUG_FLAG) {
+            std::cout << "\nInitializing at i=" << i << std::endl;
+            bufferVals(recordedMidi[currentBufferIndexRec-1], "Current buffer");
+            p50b(prevPredictions, "prevpred", 20);
+        }
     }
     predictionBufferIndex = 0;
     
@@ -299,7 +343,8 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
     
     if (DEBUG_FLAG) {
-        p50(liveMidi);
+//        p50b(liveMidi, "50 events of Live MIDI");
+//        p50b(recordedMidi, "50 events of Rec MIDI");
     }
 
     
@@ -358,32 +403,13 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 }
 #endif
 
-
-void bufferVals(juce::MidiBuffer& a, juce::String name) {
-    for(const auto meta: a) {
-        std::cout << "MIDI Event in " << name << ": " << meta.getMessage().getDescription() << std::endl;
-    }
-}
-
-void seqVals(juce::MidiMessageSequence& a, juce::String name) {
-    for(const auto meta: a) {
-        std::cout << "MIDI Event in " << name << ": " << meta->message.getDescription() << std::endl;
-    }
-}
-
-void p50(juce::MidiMessageSequence& a, int n /*= 50*/) {
-    for (int i=0; i<n; i++) {
-        std::cout << "MIDI Event: "<< a.getEventPointer(i)->message.getDescription() << std::endl;
-    }
-}
-
 void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples = -1)
 {
     a.addEvents(b, 0, numSamples, 0);
     if (DEBUG_FLAG) {
-        if(b.getNumEvents()>0)
+        if(! b.isEmpty())
         {
-            std::cout << "Found an event";
+//            std::cout << "Found an event";
         }
     }
 }
@@ -439,6 +465,8 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b)
         }
         if (pause) { // save notes to search later
             unmatchedNotes.addEvent(m);
+//            unmatchedNotes.addEvent(m, currentPositionRecSamples);
+//            unmatchedNotes.updateMatchedPairs();
         }
     }
     if(!pause) {
@@ -459,7 +487,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 {
     // PROCESS MIDI DATA
 //    juce::MidiBuffer processedMidi;
-    int time;
+    int time_samp;
     juce::MidiMessage m;
 //    juce::MidiMessage pitchbSendMessage;
 //    float pitchbendRangeInSemitones = 2.0f; // THIS HAS TO AGREE WITH YOUR YOUR SYNTH ENGINE
@@ -486,6 +514,13 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     juce::MidiBuffer& liveBuffer = liveMidi[currentBufferIndexLive];
     ++currentBufferIndexLive;
     
+    if ( DEBUG_FLAG) {
+        if (! (recordedBuffer2.isEmpty() && liveBuffer.isEmpty())) {
+            bufferVals(recordedBuffer2, "recordedBuffer2");
+            bufferVals(liveBuffer,"Live");
+        }
+    }
+    
     // MAGIC GUI: send midi messages to the keyboard state and MidiLearn
     magicState.processMidiBuffer (midiMessages, buffer.getNumSamples(), true);
     // MAGIC GUI: send playhead information to the GUI
@@ -510,18 +545,16 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
 
     // Obsolete API (which still works): for (MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, time);)
-    if ( DEBUG_FLAG) {
-        bufferVals(liveBuffer,"Live");
-    }
     for (const auto meta : recordedBuffer2)
     {
         m = meta.getMessage();
-        m.setNoteNumber(m.getNoteNumber()+7); // Changing key/ octave to differentiate from live performance
+        m.setNoteNumber(m.getNoteNumber()); // Changing key/ octave to differentiate from live performance
         midiKeyboardState.processNextMidiEvent(m); // Let PGM display current note
-        time = m.getTimeStamp();
+        time_samp = m.getTimeStamp();
         auto description = m.getDescription();
-        if (DEBUG_FLAG)
-            std::cout << "MIDI EVENT rb2:" << description << "\n";
+        if (DEBUG_FLAG) {
+            std::cout << "Iterating rb2 --- MIDI EVENT:" << description << "\n";
+        }
         
         if (predictionCase == 1) {
             // 1. Simplest prediction case - playback recording as is
@@ -561,7 +594,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         }
         
         // Add processed midi event to prediction buffer
-        midiPrediction.addEvent (m, time);
+        midiPrediction.addEvent (m, time_samp);
         currentPositionRecMidi += 1;
         if(m.isNoteOn())
         {
@@ -597,6 +630,8 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     combineEvents(midiCombined, prevPredictions[predictionBufferIndex]); // Uses addEvents with MidiBuffer&
 //    combineEvents(midiCombined, liveBuffer);
     combineEvents(midiCombined, midiMessages);
+    
+    p50b(prevPredictions, "\nprevpred", 20);
     
 //    synthesiser.renderNextBlock (buffer, prevPredictions[predictionBufferIndex], 0, buffer.getNumSamples());
     synthAudioSource.getNextAudioBlock(bufferInfo,
