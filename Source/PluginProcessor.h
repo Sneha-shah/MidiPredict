@@ -93,7 +93,8 @@ private:
   std::vector<juce::MidiBuffer> prevPredictions;
   std::vector<juce::MidiBuffer> liveMidi;
   juce::MidiMessageSequence recordedMidiSequence;
-  juce::MidiMessageSequence unmatchedNotes;
+  juce::MidiMessageSequence unmatchedNotes_pred;
+  juce::MidiMessageSequence unmatchedNotes_live;
   int currentBufferIndexRec;
   int currentBufferIndexLive;
   int currentPositionRecMidi;

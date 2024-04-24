@@ -324,11 +324,12 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     }
     predictionBufferIndex = 0;
     
-    recordedMidiSequence = readMIDIFile(myMidiFile, sampleRate, 0.9);
+    recordedMidiSequence = readMIDIFile(myMidiFile, sampleRate, 0.99);
     if(currentPositionRecMidi>0)
         lastEvent = recordedMidiSequence.getEventPointer(currentPositionRecMidi-1)->message;
     nextEvent = recordedMidiSequence.getEventPointer(currentPositionRecMidi)->message;
-    unmatchedNotes.clear();
+    unmatchedNotes_pred.clear();
+    unmatchedNotes_live.clear();
     
     auto myMidiFile2 = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
       .getChildFile ("Contents")
@@ -414,25 +415,43 @@ void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, in
     }
 }
 
-bool PluginProcessor::checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b)
+bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer)
 {
     juce::MidiMessage m;
     bool pause = false;
+    juce::MidiMessageMetadata* lastMatched;
     // Loop through unmatchedNotes and compare MIDI events to buffer b
-    while (unmatchedNotes.getNumEvents() > 0)
+    while (unmatchedNotes_pred.getNumEvents() > 0)
     {
-        m = unmatchedNotes.getEventPointer(0)->message;
+        if (DEBUG_FLAG) {
+            bufferVals(liveBuffer, "Live");
+            bufferVals(predBuffer, "Pred");
+            seqVals(unmatchedNotes_pred, "unmatched");
+        }
+        m = unmatchedNotes_pred.getEventPointer(0)->message;
         if (!m.isNoteOn()) // Skip non-note events
             continue;
 
         bool found = false;
-        for (const auto metaB : b)
+        for (int i=0; i<unmatchedNotes_live.getNumEvents(); i++) {
+            if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
+            {
+                found = true;
+//                juce::MidiMessageSequence::MidiEventHolder dummyHolder;
+                unmatchedNotes_pred.deleteEvent(0,0);
+                unmatchedNotes_live.deleteEvent(i,0);
+                break;
+            }
+        }
+        for (auto metaB : liveBuffer)
         {
             if (metaB.getMessage().getNoteNumber() == m.getNoteNumber())
             {
                 found = true;
 //                juce::MidiMessageSequence::MidiEventHolder dummyHolder;
-                unmatchedNotes.deleteEvent(0,0);
+                unmatchedNotes_pred.deleteEvent(0,0);
+//                lastMatched = metaB.getMessage();
+                lastMatched = &metaB;
                 break;
             }
         }
@@ -442,7 +461,7 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b)
             break;
         }
     }
-    for (const auto meta : a)
+    for (const auto meta : predBuffer)
     {
         m = meta.getMessage();
         if (! m.isNoteOn())
@@ -450,11 +469,21 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b)
 
         if(!pause) {
             bool found = false; // is this really the best way to check missing notes?
-            for (const auto metaB : b)
+            for (int i=0; i<unmatchedNotes_live.getNumEvents(); i++) {
+                if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
+                {
+                    found = true;
+                    unmatchedNotes_live.deleteEvent(i,0);
+                    i--;
+                    break;
+                }
+            }
+            for (auto metaB : liveBuffer)
             {
                 if (metaB.getMessage().getNoteNumber() == m.getNoteNumber())
                 {
                     found = true;
+                    lastMatched = &metaB;
                     break;
                 }
             }
@@ -464,21 +493,36 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b)
             }
         }
         if (pause) { // save notes to search later
-            unmatchedNotes.addEvent(m);
+            unmatchedNotes_pred.addEvent(m);
 //            unmatchedNotes.addEvent(m, currentPositionRecSamples);
 //            unmatchedNotes.updateMatchedPairs();
         }
     }
+    bool started = !&lastMatched.isNoteOnOrOff();
+//    for (const auto metaB : b) { // need to make more efficient
+//        juce::MidiMessage m = metaB.getMessage();
+//        if (started && m.isNoteOnOrOff()) {
+//            unmatchedNotes_live.addEvent(m);
+//        }
+//        if (lastMatched == metaB)
+//            started = true;
+//    }
+    for (auto metaB = &lastMatched; metaB != liveBuffer.end(); metaB = metaB.next()) {
+        juce::MidiMessage m = metaB.getMessage();
+        if (m.isNoteOnOrOff()) {
+                unmatchedNotes_live.addEvent(m);
+            }
+    }
+    
     if(!pause) {
-        unmatchedNotes.clear();
         return false;
     }
     else {
-        if (DEBUG_FLAG) {
-            bufferVals(b, "Live");
-            bufferVals(a, "Pred");
-            seqVals(unmatchedNotes, "unmatched");
-        }
+//        if (DEBUG_FLAG) {
+//            bufferVals(b, "Live");
+//            bufferVals(a, "Pred");
+//            seqVals(unmatchedNotes_pred, "unmatched");
+//        }
         return true;// pause and wait till note is found
     }
 }
@@ -631,7 +675,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 //    combineEvents(midiCombined, liveBuffer);
     combineEvents(midiCombined, midiMessages);
     
-    p50b(prevPredictions, "\nprevpred", 20);
     
 //    synthesiser.renderNextBlock (buffer, prevPredictions[predictionBufferIndex], 0, buffer.getNumSamples());
     synthAudioSource.getNextAudioBlock(bufferInfo,
@@ -647,6 +690,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
         currentPositionRecSamples += buffer.getNumSamples(); // FIX THIS
     }
+    if (DEBUG_FLAG)
+        p50b(prevPredictions, "\nprevpred", 20);
+    
     
 //    for (int i = 1; i < buffer.getNumChannels(); ++i)
 //        buffer.copyFrom (i, 0, buffer.getReadPointer (0), buffer.getNumSamples());
