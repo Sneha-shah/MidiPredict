@@ -95,6 +95,8 @@ private:
   juce::MidiMessageSequence recordedMidiSequence;
   juce::MidiMessageSequence unmatchedNotes_pred;
   juce::MidiMessageSequence unmatchedNotes_live;
+    const juce::uint8* liveBufferIndex;
+    const juce::uint8* predBufferIndex;
   int currentBufferIndexRec;
   int currentBufferIndexLive;
   int currentPositionRecMidi;

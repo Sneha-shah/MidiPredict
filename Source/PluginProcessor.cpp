@@ -246,6 +246,7 @@ juce::MidiMessageSequence readMIDIFile(const juce::File& midiFile, double sample
 
                     // Add the MIDI message to the sequence
                     loadedMidiSequence.addEvent(midiMessage, speedShift*timeStamp_samples);
+//                    loadedMidiSequence.addEvent(midiMessage, (speedShift - 1.0) * timeStamp_samples);
                 }
             }
             return loadedMidiSequence;
@@ -341,7 +342,9 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     currentBufferIndexLive = 0;
     
 //    synthesiser.setCurrentPlaybackSampleRate(sampleRate);
-    synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
+//    synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
+    liveBufferIndex = nullptr;
+    predBufferIndex = nullptr;
     
     if (DEBUG_FLAG) {
 //        p50b(liveMidi, "50 events of Live MIDI");
@@ -417,114 +420,74 @@ void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, in
 
 bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer)
 {
+    // What to do if live buffer gets ahead?
+    
     juce::MidiMessage m;
     bool pause = false;
-    juce::MidiMessageMetadata* lastMatched;
-    // Loop through unmatchedNotes and compare MIDI events to buffer b
-    while (unmatchedNotes_pred.getNumEvents() > 0)
-    {
-        if (DEBUG_FLAG) {
-            bufferVals(liveBuffer, "Live");
-            bufferVals(predBuffer, "Pred");
-            seqVals(unmatchedNotes_pred, "unmatched");
+    
+//    const juce::uint8* liveBufferIndex;
+    if (predBufferIndex == nullptr) {
+        auto iter = predBuffer.begin();
+        if (iter == predBuffer.end()) {
+            pause = false;
+            return pause;
         }
-        m = unmatchedNotes_pred.getEventPointer(0)->message;
-        if (!m.isNoteOn()) // Skip non-note events
-            continue;
-
-        bool found = false;
-        for (int i=0; i<unmatchedNotes_live.getNumEvents(); i++) {
-            if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
-            {
-                found = true;
-//                juce::MidiMessageSequence::MidiEventHolder dummyHolder;
-                unmatchedNotes_pred.deleteEvent(0,0);
-                unmatchedNotes_live.deleteEvent(i,0);
-                break;
-            }
-        }
-        for (auto metaB : liveBuffer)
-        {
-            if (metaB.getMessage().getNoteNumber() == m.getNoteNumber())
-            {
-                found = true;
-//                juce::MidiMessageSequence::MidiEventHolder dummyHolder;
-                unmatchedNotes_pred.deleteEvent(0,0);
-//                lastMatched = metaB.getMessage();
-                lastMatched = &metaB;
-                break;
-            }
-        }
-        if (!found) // If note not found in buffer b, set pause flag
-        {
-            pause = true;
-            break;
-        }
+        const juce::MidiMessage& m = (*iter).getMessage();
+        predBufferIndex = reinterpret_cast<const juce::uint8*>(&m); // correct?
     }
-    for (const auto meta : predBuffer)
+    if (liveBufferIndex == nullptr) {
+        auto iter = liveBuffer.begin();
+        if (iter == liveBuffer.end()) {
+            pause = true;
+            return pause;
+        }
+        const juce::MidiMessageMetadata& metadata = *iter;
+        liveBufferIndex = reinterpret_cast<const juce::uint8*>(&metadata); // correct?
+    }
+//    juce::MidiBufferIterator liveBufferIter(liveBufferIndex);
+    
+    // Loop through unmatchedNotes and compare MIDI events to buffer b
+    for (juce::MidiBufferIterator iterP(predBufferIndex); iterP != predBuffer.end(); ++iterP)
     {
-        m = meta.getMessage();
+        m = (*iterP).getMessage();
         if (! m.isNoteOn())
             continue;
+        predBufferIndex = reinterpret_cast<const juce::uint8*>(&m); // ????
 
         if(!pause) {
             bool found = false; // is this really the best way to check missing notes?
-            for (int i=0; i<unmatchedNotes_live.getNumEvents(); i++) {
-                if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
-                {
-                    found = true;
-                    unmatchedNotes_live.deleteEvent(i,0);
-                    i--;
-                    break;
-                }
-            }
-            for (auto metaB : liveBuffer)
+            for (juce::MidiBufferIterator iterL(liveBufferIndex); iterL != liveBuffer.end(); ++iterL)
             {
-                if (metaB.getMessage().getNoteNumber() == m.getNoteNumber())
+                const juce::MidiMessage& m2 = (*iterL).getMessage();
+                if (! m2.isNoteOn())
+                    continue;
+                liveBufferIndex = reinterpret_cast<const juce::uint8*>(&m2); // ????
+                if ((*iterL).getMessage().getNoteNumber() == m.getNoteNumber())
                 {
                     found = true;
-                    lastMatched = &metaB;
                     break;
                 }
             }
             if (!found) // pause and wait till note is found
             {
                 pause = true;
+                break;
             }
         }
-        if (pause) { // save notes to search later
-            unmatchedNotes_pred.addEvent(m);
-//            unmatchedNotes.addEvent(m, currentPositionRecSamples);
-//            unmatchedNotes.updateMatchedPairs();
-        }
-    }
-    bool started = !&lastMatched.isNoteOnOrOff();
-//    for (const auto metaB : b) { // need to make more efficient
-//        juce::MidiMessage m = metaB.getMessage();
-//        if (started && m.isNoteOnOrOff()) {
-//            unmatchedNotes_live.addEvent(m);
-//        }
-//        if (lastMatched == metaB)
-//            started = true;
-//    }
-    for (auto metaB = &lastMatched; metaB != liveBuffer.end(); metaB = metaB.next()) {
-        juce::MidiMessage m = metaB.getMessage();
-        if (m.isNoteOnOrOff()) {
-                unmatchedNotes_live.addEvent(m);
-            }
     }
     
     if(!pause) {
         return false;
     }
     else {
-//        if (DEBUG_FLAG) {
-//            bufferVals(b, "Live");
-//            bufferVals(a, "Pred");
-//            seqVals(unmatchedNotes_pred, "unmatched");
-//        }
+        if (DEBUG_FLAG) {
+            bufferVals(liveBuffer, "Live");
+            bufferVals(predBuffer, "Pred");
+            seqVals(unmatchedNotes_pred, "unmatched");
+        }
         return true;// pause and wait till note is found
     }
+    return false;
 }
 
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -535,7 +498,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     juce::MidiMessage m;
 //    juce::MidiMessage pitchbSendMessage;
 //    float pitchbendRangeInSemitones = 2.0f; // THIS HAS TO AGREE WITH YOUR YOUR SYNTH ENGINE
-    
     
     // Source 1 (history) midiRecorded
     // 1) Process it block by block here :
