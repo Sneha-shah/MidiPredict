@@ -351,6 +351,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 //        p50b(recordedMidi, "50 events of Rec MIDI");
     }
 
+    sampleRate_ = sampleRate;
     
 //    // Testing that the reading is correct by printing out 100 blocks of data (~1.2 seconds)
 //    juce::MidiMessage m;
@@ -492,6 +493,10 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
 
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    if (sampleRate_ == 0.0) {
+        // Sample rate not set, return without processing
+        return;
+    }
     // PROCESS MIDI DATA
 //    juce::MidiBuffer processedMidi;
     int time_samp;
@@ -539,7 +544,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     //     tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
     // 4.
     
-    int predictionCase = 2; // 1 - Playback recording as is
+    int predictionCase = 1; // 1 - Playback recording as is
 //    int PLAYBACK = 1;
 //    int PAUSE = 2;
 //    int TEMPO_EXP = 3;

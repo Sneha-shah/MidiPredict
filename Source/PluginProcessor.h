@@ -101,6 +101,7 @@ private:
   int currentBufferIndexLive;
   int currentPositionRecMidi;
   int currentPositionRecSamples;
+    float sampleRate_;
   juce::MidiMessage lastEvent;
   juce::MidiMessage nextEvent;
   int lag; // in number of blocks
