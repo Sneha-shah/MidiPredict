@@ -342,7 +342,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     currentBufferIndexLive = 0;
     
 //    synthesiser.setCurrentPlaybackSampleRate(sampleRate);
-//    synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
+    synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
     liveBufferIndex = nullptr;
     predBufferIndex = nullptr;
     
@@ -544,7 +544,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     //     tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
     // 4.
     
-    int predictionCase = 1; // 1 - Playback recording as is
+    int predictionCase = 2; // 1 - Playback recording as is
 //    int PLAYBACK = 1;
 //    int PAUSE = 2;
 //    int TEMPO_EXP = 3;
