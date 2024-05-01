@@ -433,17 +433,15 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
             pause = false;
             return pause;
         }
-        const juce::MidiMessage& m = (*iter).getMessage();
-        predBufferIndex = reinterpret_cast<const juce::uint8*>(&m); // correct?
+        predBufferIndex = reinterpret_cast<const juce::uint8*>(iter.getData()); // correct?
     }
     if (liveBufferIndex == nullptr) {
         auto iter = liveBuffer.begin();
         if (iter == liveBuffer.end()) {
-            pause = true;
+            pause = true; 
             return pause;
         }
-        const juce::MidiMessageMetadata& metadata = *iter;
-        liveBufferIndex = reinterpret_cast<const juce::uint8*>(&metadata); // correct?
+        liveBufferIndex = reinterpret_cast<const juce::uint8*>(iter.getData()); // correct?
     }
 //    juce::MidiBufferIterator liveBufferIter(liveBufferIndex);
     
