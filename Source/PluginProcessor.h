@@ -89,7 +89,7 @@ private:
 
   void runUnitTests(bool runAll = false);
 
-  std::vector<juce::MidiBuffer> recordedMidi;
+//  std::vector<juce::MidiBuffer> recordedMidi;
   std::vector<juce::MidiBuffer> prevPredictions;
   std::vector<juce::MidiBuffer> liveMidi;
   juce::MidiMessageSequence recordedMidiSequence;
@@ -97,13 +97,15 @@ private:
   juce::MidiMessageSequence unmatchedNotes_live;
     const juce::uint8* liveBufferIndex;
     const juce::uint8* predBufferIndex;
-  int currentBufferIndexRec;
+    juce::MidiBuffer recordedBuffer2;
+    juce::MidiBuffer liveBuffer;
+//  int currentBufferIndexRec;
   int currentBufferIndexLive;
   int currentPositionRecMidi;
   int currentPositionRecSamples;
     float sampleRate_;
-  juce::MidiMessage lastEvent;
-  juce::MidiMessage nextEvent;
+//  juce::MidiMessage lastEvent;
+//  juce::MidiMessage nextEvent;
   int lag; // in number of blocks
   int predictionBufferIndex;
   float noteDensity_prac_prev;
