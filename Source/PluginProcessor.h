@@ -79,7 +79,7 @@ public:
 
 private:
 
-  bool DEBUG_FLAG = 1;
+  bool DEBUG_FLAG = 0;
     
   juce::String currentChord = "no Chord in Processor";
   std::array<int,12> pitchClassesPresent { 0 };
