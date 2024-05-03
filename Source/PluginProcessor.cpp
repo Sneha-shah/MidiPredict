@@ -245,8 +245,8 @@ juce::MidiMessageSequence readMIDIFile(const juce::File& midiFile, double sample
                     int timeStamp_samples = static_cast<int>(timeStamp_sec * sampleRate);
 
                     // Add the MIDI message to the sequence
-                    loadedMidiSequence.addEvent(midiMessage, speedShift*timeStamp_samples);
-//                    loadedMidiSequence.addEvent(midiMessage, (speedShift - 1.0) * timeStamp_samples);
+                    loadedMidiSequence.addEvent(midiMessage, speedShift*timeStamp_samples); // QUES: WHY DOES THIS WORK??
+//                    loadedMidiSequence.addEvent(midiMessage, (speedShift - 1.0) * timeStamp_samples); // QUES: AND NOT THIS??
                 }
             }
             return loadedMidiSequence;
@@ -289,9 +289,6 @@ juce::MidiBuffer PluginProcessor::generateMidiBuffer(const juce::MidiMessageSequ
 
 void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-  // Use this method as the place to do any pre-playback
-  // initialisation that you need..
-    
     if (DEBUG_FLAG) {
         std::cout << "Samples per Block = " << samplesPerBlock << "\n";
         std::cout << "SampleRate = " << sampleRate << "\n";
@@ -309,7 +306,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     currentPositionRecMidi = 0;
     currentPositionRecSamples = 0;
     
-    // Setting lag and processing outputs till then?
+    // Setting lag and processing outputs till then
     lag = 20; // num blocks
     for(int i=0; i<lag; i++)
     {
@@ -317,18 +314,10 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         currentPositionRecMidi += recordedMidi[currentBufferIndexRec].getNumEvents();
         currentPositionRecSamples += samplesPerBlock;
         ++currentBufferIndexRec;
-        if (DEBUG_FLAG) {
-//            std::cout << "\nInitializing at i=" << i << std::endl;
-//            bufferVals(recordedMidi[currentBufferIndexRec-1], "Current buffer");
-//            p50b(prevPredictions, "prevpred", 20);
-        }
     }
     predictionBufferIndex = 0;
     
     recordedMidiSequence = readMIDIFile(myMidiFile, sampleRate, 0.8);
-//    if(currentPositionRecMidi>0)
-//        lastEvent = recordedMidiSequence.getEventPointer(currentPositionRecMidi-1)->message;
-//    nextEvent = recordedMidiSequence.getEventPointer(currentPositionRecMidi)->message;
     unmatchedNotes_pred.clear();
     unmatchedNotes_live.clear();
     
@@ -340,15 +329,10 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     liveMidi = readMIDIFile(myMidiFile2, sampleRate, samplesPerBlock);
     currentBufferIndexLive = 0;
     
-//    synthesiser.setCurrentPlaybackSampleRate(sampleRate);
     synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
     liveBufferIndex = nullptr;
     predBufferIndex = nullptr;
-    
-    if (DEBUG_FLAG) {
-//        p50b(liveMidi, "50 events of Live MIDI");
-//        p50b(recordedMidi, "50 events of Rec MIDI");
-    }
+    noteDensity_pred = 1;
 
     sampleRate_ = sampleRate;
     
@@ -391,19 +375,11 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples = -1)
 {
     a.addEvents(b, 0, numSamples, 0);
-    if (DEBUG_FLAG) {
-        if(! b.isEmpty())
-        {
-//            std::cout << "Found an event";
-        }
-    }
 }
-
-bool seachLive();
 
 bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer)
 {
-    // What to do if live buffer gets ahead?
+    // TO DO (can skip): What to do if live buffer gets ahead?
     
     juce::MidiMessage m;
     bool pause = false;
@@ -419,10 +395,6 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
                 return pause;
             }
             predBufferIndex = (*iter).getMessage().getRawData();
-            //        auto temp = (*iter).getMessage().getRawData();
-            //        predBufferIndex = iter.getData();
-            //        if (DEBUG_FLAG)
-            //            std::cout << "predBufferIndex==(*iter).getMessage().getRawData():" << (predBufferIndex==temp)<<std::endl;
         }
         if (liveBufferIndex == nullptr) {
             auto iter = liveBuffer.begin();
@@ -431,12 +403,6 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
                 return pause;
             }
             liveBufferIndex = (*iter).getMessage().getRawData();
-            //        const juce::uint8* temp = (*iter).getMessage().getRawData();
-            //        liveBufferIndex = iter.getData();
-            if (DEBUG_FLAG) {
-                //            std::cout << "liveBufferIndex==(*iter).getMessage().getRawData():" << (liveBufferIndex==temp)<<std::endl;
-//                std::cout << liveBuffer.
-            }
         }
         
         // Loop through unmatchedNotes and compare MIDI events to buffer b
@@ -446,7 +412,7 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
             m = (*iterP).getMessage();
             if (! m.isNoteOn())
                 continue;
-            predBufferIndex = reinterpret_cast<const juce::uint8*>(&m); // ????
+            predBufferIndex = m.getRawData(); //
             
             if(!pause) {
                 bool found = false; // is this really the best way to check missing notes?
@@ -455,16 +421,22 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
                     const juce::MidiMessage& m2 = (*iterL).getMessage();
                     if (! m2.isNoteOn())
                         continue;
-                    liveBufferIndex = reinterpret_cast<const juce::uint8*>(&m2); // ????
+                    liveBufferIndex = m2.getRawData(); //
                     if ((*iterL).getMessage().getNoteNumber() == m.getNoteNumber())
                     {
                         found = true;
+                        ++iterL;
+                        if (iterL == liveBuffer.end())
+                            liveBufferIndex = nullptr;
+                        else
+                            liveBufferIndex = (*iterL).getMessage().getRawData();
                         break;
                     }
                 }
                 if (!found) // pause and wait till note is found
                 {
                     pause = true;
+                    liveBufferIndex = nullptr;
                     break;
                 }
             }
@@ -474,74 +446,72 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
     } else if (option == 2) {
         
         /** OPTION 2 STARTS HERE - Using MidiSequences */
-            liveBufferIndex = nullptr;
-            predBufferIndex = nullptr;
-            int timeAdj = 0;
-            if (unmatchedNotes_live.getNumEvents() > 0)
-                timeAdj = unmatchedNotes_live.getEventTime(unmatchedNotes_live.getNumEvents() - 1)+2;
-            for (auto metaB : liveBuffer)
+        liveBufferIndex = nullptr;
+        predBufferIndex = nullptr;
+        int timeAdj = 0;
+        if (unmatchedNotes_live.getNumEvents() > 0)
+            timeAdj = unmatchedNotes_live.getEventTime(unmatchedNotes_live.getNumEvents() - 1)+2;
+        for (auto metaB : liveBuffer)
+        {
+            if (metaB.getMessage().isNoteOnOrOff())
             {
-                if (metaB.getMessage().isNoteOnOrOff())
+                unmatchedNotes_live.addEvent(metaB.getMessage(), timeAdj);
+            }
+        }
+    
+        // Loop through unmatchedNotes and compare MIDI events to buffer b
+        while (unmatchedNotes_pred.getNumEvents() > 0)
+        {
+            m = unmatchedNotes_pred.getEventPointer(0)->message;
+            if (!m.isNoteOnOrOff()) { // Skip non-note events
+                unmatchedNotes_pred.deleteEvent(0,0);
+                continue;
+            }
+    
+            bool found = false;
+            for (int i=0; i<1 && i<unmatchedNotes_live.getNumEvents(); i++) {
+                if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
                 {
-                    unmatchedNotes_live.addEvent(metaB.getMessage(), timeAdj);
+                    found = true;
+                    unmatchedNotes_live.deleteEvent(i,0);
+                    break;
                 }
             }
-            while (unmatchedNotes_pred.getNumEvents() > 0)
+            if (!found) // If note not found in buffer b, set pause flag
             {
-                m = unmatchedNotes_pred.getEventPointer(0)->message;
-                if (!m.isNoteOnOrOff()) { // Skip non-note events
-                    unmatchedNotes_pred.deleteEvent(0,0);
-                    continue;
-                }
-        
-                bool found = false;
+                pause = true;
+                break;
+            } else {
+                unmatchedNotes_pred.deleteEvent(0,0);
+            }
+        }
+        for (const auto meta : predBuffer)
+        {
+            if (DEBUG_FLAG && unmatchedNotes_live.getNumEvents() > 0)
+                std::cout << "\nCatching up to live now...\n\n";
+            m = meta.getMessage();
+            if (! m.isNoteOnOrOff())
+                continue;
+    
+            if(!pause) {
+                bool found = false; // is this really the best way to check missing notes?
                 for (int i=0; i<1 && i<unmatchedNotes_live.getNumEvents(); i++) {
                     if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
                     {
                         found = true;
                         unmatchedNotes_live.deleteEvent(i,0);
-                        break;
                     }
                 }
-                // check buffer
                 if (!found) // If note not found in buffer b, set pause flag
                 {
                     pause = true;
-                    break;
-                } else {
-                    unmatchedNotes_pred.deleteEvent(0,0);
                 }
             }
-            for (const auto meta : predBuffer)
-            {
-                if (DEBUG_FLAG && unmatchedNotes_live.getNumEvents() > 0)
-                    std::cout << "\nCatching up to live now...\n\n";
-                m = meta.getMessage();
-                if (! m.isNoteOnOrOff())
-                    continue;
-        
-                if(!pause) {
-                    bool found = false; // is this really the best way to check missing notes?
-                    for (int i=0; i<1 && i<unmatchedNotes_live.getNumEvents(); i++) {
-                        if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
-                        {
-                            found = true;
-                            unmatchedNotes_live.deleteEvent(i,0);
-        //                        i--;
-        //                        break;
-                        }
-                    }
-                    if (!found) // If note not found in buffer b, set pause flag
-                    {
-                        pause = true;
-                    }
-                }
-                if (pause) { // save notes to search later
-                    unmatchedNotes_pred.addEvent(m);
-        //            unmatchedNotes.addEvent(m, currentPositionRecSamples);
-        //            unmatchedNotes.updateMatchedPairs();
-                }
+            if (pause) { // save notes to search later
+//                    unmatchedNotes_pred.addEvent(m); // QUES: Works?
+                unmatchedNotes_pred.addEvent(m, currentPositionRecSamples); // QUES: But technically correct?
             }
+        }
         /** OPTION 2 ENDS HERE */
     }
     
@@ -553,63 +523,54 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
     }
     if(!pause) {
         predBufferIndex = nullptr;
-//        liveBufferIndex = nullptr;
         return false;
     }
     else {
-        return true;// pause and wait till note is found
+        return true; // pause and wait till note is found
     }
     return false;
 }
 
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    // PROCESS MIDI DATA
+    
     if (sampleRate_ == 0.0) {
         // Sample rate not set, return without processing
         return;
     }
-    // PROCESS MIDI DATA
-//    juce::MidiBuffer processedMidi;
+    
     int time_samp;
     juce::MidiMessage m;
     
     // Source 1 (history) midiRecorded
-    // 1) Process it block by block here :
-//    juce::MidiBuffer& recordedBuffer = recordedMidi[currentBufferIndexRec];
-//    ++currentBufferIndexRec;
+    // 1) Process it block by block here (lag amount of time in the future of live) :
     if (predBufferIndex == nullptr) {
-        recordedBuffer2 = generateMidiBuffer(recordedMidiSequence, getSampleRate(), buffer.getNumSamples()); // QUES: Is this an expensive operation to copy? Can it be avoided? (using rn so pointers access to same memory location...)
-    } else if ( DEBUG_FLAG ) {
-//        std::cout << "\nNON-NULL PTR predBufferIndex\n\n";
+        recordedBuffer = generateMidiBuffer(recordedMidiSequence, getSampleRate(), buffer.getNumSamples()); // QUES: Is this an expensive operation to copy? Can it be avoided? (using rn so pointers access to same memory location...)
     }
-//    int prevPositionRecSamples = currentPositionRecSamples;
-    
+    // 2) Send processed prediction for playback : midiPrediction
+    juce::MidiBuffer midiPrediction {};
+
 //    if (currentBufferIndex >= recordedMidi.size())
 //    {
 //        recordedBuffer = midiMessages;
 //        --currentBufferIndex;
 //    }
     
-    // 2) Send processed prediction for playback : midiPrediction
-    juce::MidiBuffer midiPrediction {};
-    
     // Temporarily, Source 2 from file:
-    // 1) Create a delayed input at some latency (say 50ms) : delayed_realtime
+    // 1) Create a delayed input in realtime - effectively at a lag behind recordedBuffer
     // 2) Use as is for playback
     if (liveBufferIndex == nullptr) {
         liveBuffer = liveMidi[currentBufferIndexLive]; // QUES: Is this an expensive operation to copy? Can it be avoided? (using rn so pointers access to same memory location...)
     } else {
         liveBuffer.addEvents(liveMidi[currentBufferIndexLive], 0, -1, buffer.getNumSamples());
-        // TO DO: Also somehow delete matched events
-//        if ( DEBUG_FLAG ) {
-//            std::cout << "\nNON-NULL PTR liveBufferIndex\n\n";
-//        }
+        // TO DO: Also somehow delete matched events; also in playback this could cause issues
     }
     ++currentBufferIndexLive;
     
     if ( DEBUG_FLAG ) {
-        if (! (recordedBuffer2.isEmpty() && liveBuffer.isEmpty())) {
-            bufferVals(recordedBuffer2, "recordedBuffer2");
+        if (! (recordedBuffer.isEmpty() && liveBuffer.isEmpty())) {
+            bufferVals(recordedBuffer, "recordedBuffer2");
             bufferVals(liveBuffer,"Live");
         }
     }
@@ -631,84 +592,64 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 //    int PAUSE = 2;
 //    int TEMPO_EXP = 3;
     bool isPaused = false;
-    if (predictionCase == 2) {
+    if (predictionCase == 1) {
+        // 1. Simplest prediction case - playback recording as is
+        // do nothing
+    } else if (predictionCase == 2) {
+        // 2. Pause when no input seen
+        // We need to compare already played recBuffer (aka current prediction - lag)
+        // With the liveBuffer (current input)
+        // If for any note in recBuffer, there is no corresponding note in liveBuffer, pause
+        // If there is a note in liveBuffer that is not in recBuffer, play it
+        // For every m in prevPredictions[predictionBufferIndex], check if it is in liveBuffer
+        // If not, pause
+
+        // Initially pause the whole block only
         isPaused = checkIfPause(prevPredictions[predictionBufferIndex], liveBuffer);
         if (DEBUG_FLAG)
             std::cout << "isPaused: " << isPaused << std::endl;
+    } else if (predictionCase == 3) {
+        // 3. Implement rough tempo tracking pt 1: (calc note density using number of notes played so far)
+        // next process m according to new tempo
+        // noteDensity_pred(n) = a*noteDensity_pred(n-1) + (1-a)*noteDensity_network(n-lag)
+        num_notes_recorded = 0; // TO DO: update with prediction buffer (prevPredictions[predictionBufferIndex])
+        num_notes_network = 0; // TO DO: update with curr buffer (midiMessages)
+        float noteDensity_network = num_notes_network/ num_notes_recorded; // tempo estimation using number of notes played so far as compared to recording.
+        noteDensity_pred = alpha*noteDensity_pred + (1-alpha) * noteDensity_network;
+    } else {
+        std::cout << "Invalid value for predictionCase. Defaulting to do nothing case." << std::endl;
     }
 
     // Obsolete API (which still works): for (MidiBuffer::Iterator i (midiMessages); i.getNextEvent (m, time);)
-    for (const auto meta : recordedBuffer2)
+    if (!isPaused) {
+    for (const auto meta : recordedBuffer)
     {
         m = meta.getMessage();
-//        m.setNoteNumber(m.getNoteNumber()+7); // Changing key/ octave to differentiate from live performance
+//            m.setNoteNumber(m.getNoteNumber()+7); // Changing key/ octave to differentiate from live performance
         midiKeyboardState.processNextMidiEvent(m); // Let PGM display current note
-        time_samp = m.getTimeStamp();
         auto description = m.getDescription();
         if (DEBUG_FLAG) {
             std::cout << "Iterating rb2 --- MIDI EVENT:" << description << "\n";
         }
         
-        if (predictionCase == 1) {
-            // 1. Simplest prediction case - playback recording as is
-            // do nothing
-        }
-        else if (predictionCase == 2) {
-            // 2. Pause when no input seen
-            // We need to compare already played recBuffer (aka current prediction - lag) 
-            // With the liveBuffer (current input)
-            // If for any note in recBuffer, there is no corresponding note in liveBuffer, pause
-            // If there is a note in liveBuffer that is not in recBuffer, play it
-            // For every m in prevPredictions[predictionBufferIndex], check if it is in liveBuffer
-            // If not, pause
-
-            // Initially pause the whole block only
-            if (isPaused)
-            {
-                if (DEBUG_FLAG)
-                    std::cout << "pausing !!!!!!!!!" << std::endl;
-                break;
-            }
-            
-        }
-        else if (predictionCase == 3) {
-            // 3. Implement rough tempo tracking pt 1: (calc note density using number of notes played so far)
-            // noteDensity_prac(n) = a*noteDensity_prac(n-1) + (1-a)*noteDensity_network(n-lag)
-            num_notes_recorded = 0; // TO DO: update with prediction buffer (prevPredictions[predictionBufferIndex])
-            num_notes_network = 0; // TO DO: update with curr buffer (midiMessages)
-            float noteDensity_prac;
-            float noteDensity_network = num_notes_network/ num_notes_recorded; // tempo estimation using number of notes played so far as compared to recording.
-            noteDensity_prac = alpha*noteDensity_prac_prev + (1-alpha) * noteDensity_network;
-            noteDensity_prac_prev = noteDensity_prac;
-            // next process m accordingly
-        }
-        else {
-            std::cout << "Invalid value for predictionCase. Defaulting to do nothing case." << std::endl;
-        }
+        time_samp = m.getTimeStamp()*noteDensity_pred;
         
         // Add processed midi event to prediction buffer
         midiPrediction.addEvent (m, time_samp);
         currentPositionRecMidi += 1;
-        if(m.isNoteOn())
-        {
-//            if(lastEvent.isNoteOn())
-//                currentPositionRecSamples += nextEvent.getTimeStamp() - lastEvent.getTimeStamp(); //FIX THIS!!!
-//            else
-//                currentPositionRecSamples += nextEvent.getTimeStamp();
-//            lastEvent = nextEvent;
-//            nextEvent = m.withTimeStamp(m.getTimeStamp()+prevPositionRecSamples);
-        }
-        if(m.getTimeStamp() >= buffer.getNumSamples())
+
+        if(time_samp >= buffer.getNumSamples())
             break;
         
-        if (m.isNoteOn()) { // exercise MIDI out
-        } else if (m.isNoteOff()) {
-            // Cancel pitchbend?
-        } else if (m.isAftertouch()) {
-            // Do something with aftertouch?
-        } else if (m.isPitchWheel()) {
-            // You could save the last note number and add pitchbend to that and convert according to your transformation
-        }
+//        if (m.isNoteOn()) { // exercise MIDI out
+//        } else if (m.isNoteOff()) {
+//            // Cancel pitchbend?
+//        } else if (m.isAftertouch()) {
+//            // Do something with aftertouch?
+//        } else if (m.isPitchWheel()) {
+//            // You could save the last note number and add pitchbend to that and convert according to your transformation
+//        }
+    }
     }
     
     // play prediction notes using synthesizer
@@ -716,8 +657,8 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     bufferInfo.buffer = &buffer;  // Assuming buffer is your AudioBuffer<float>
     bufferInfo.startSample = 0;
     bufferInfo.numSamples = buffer.getNumSamples();
-    // combine prevPredictions[predictionBufferIndex] and midiMessages
-    juce::MidiBuffer midiCombined; // midi file + current keyboard
+    // combine prediction and live performance ofr playback (prevPredictions[predictionBufferIndex] and midiMessages)
+    juce::MidiBuffer midiCombined; // midi file + current keyboard // ideally use different voices for each playback
     //    combineEvents(midiCombined, recordedBuffer, buffer.getNumSamples());
     //    combineEvents(midiCombined, recordedBuffer2, buffer.getNumSamples());
 //    if (!isPaused)
@@ -727,10 +668,9 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     
     synthAudioSource.getNextAudioBlock(bufferInfo,
                                        midiCombined);
-    // JOS (used for debugging): midiPrediction);
 
-  // midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // need to do this?
-  // JOS: Yes, when we want the plugin to forward it (Midi Filter Plugin case)
+   midiMessages.swapWith (prevPredictions[predictionBufferIndex]); // for plugin to forward it (Midi Filter Plugin case)
+    
     if (isPaused) {
         prevPredictions[predictionBufferIndex] = midiPrediction;
     } else {
@@ -740,15 +680,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
     if (DEBUG_FLAG)
         p50b(prevPredictions, "\nprevpred", 20);
-    
-    
-//    for (int i = 1; i < buffer.getNumChannels(); ++i)
-//        buffer.copyFrom (i, 0, buffer.getReadPointer (0), buffer.getNumSamples());
-//
-//    // MAGIC GUI: send the finished buffer to the level meter
-//    outputMeter->pushSamples (buffer);
-//    oscilloscope->pushSamples (buffer);
-//    analyser->pushSamples (buffer);
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

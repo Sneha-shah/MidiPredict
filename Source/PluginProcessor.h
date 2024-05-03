@@ -79,7 +79,7 @@ public:
 
 private:
 
-  bool DEBUG_FLAG = 0;
+  bool DEBUG_FLAG = 1;
     
   juce::String currentChord = "no Chord in Processor";
   std::array<int,12> pitchClassesPresent { 0 };
@@ -89,7 +89,6 @@ private:
 
   void runUnitTests(bool runAll = false);
 
-//  std::vector<juce::MidiBuffer> recordedMidi;
   std::vector<juce::MidiBuffer> prevPredictions;
   std::vector<juce::MidiBuffer> liveMidi;
   juce::MidiMessageSequence recordedMidiSequence;
@@ -97,21 +96,18 @@ private:
   juce::MidiMessageSequence unmatchedNotes_live;
     const juce::uint8* liveBufferIndex;
     const juce::uint8* predBufferIndex;
-    juce::MidiBuffer recordedBuffer2;
+    juce::MidiBuffer recordedBuffer;
     juce::MidiBuffer liveBuffer;
-//  int currentBufferIndexRec;
   int currentBufferIndexLive;
   int currentPositionRecMidi;
   int currentPositionRecSamples;
     float sampleRate_;
-//  juce::MidiMessage lastEvent;
-//  juce::MidiMessage nextEvent;
   int lag; // in number of blocks
   int predictionBufferIndex;
-  float noteDensity_prac_prev;
+  float noteDensity_pred;
   float num_notes_recorded;
   float num_notes_network;
-  float alpha; // alpha fo rtempo estimation
+  float alpha; // alpha for tempo estimation
     
 //    juce::AudioProcessorValueTreeState treeState;
 //    juce::Synthesiser      synthesiser;
