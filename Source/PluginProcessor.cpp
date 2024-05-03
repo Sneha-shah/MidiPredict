@@ -333,6 +333,9 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     liveBufferIndex = nullptr;
     predBufferIndex = nullptr;
     noteDensity_pred = 1;
+    num_notes_recorded = 0;
+    num_notes_network = 0;
+    alpha = 0.9;
 
     sampleRate_ = sampleRate;
     
@@ -393,7 +396,7 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
     // TO DO (can skip): What to do if live buffer gets ahead?
     
     juce::MidiMessage m; // QUES: use by reference? juce::MidiMessage&
-    const juce::MidiMessage m2;
+    juce::MidiMessage m2;
     bool pause = false;
     int option = 2; // 1 is pointers, 2 is MidiSequence
     
@@ -423,7 +426,7 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
         for (juce::MidiBufferIterator iterP(predBufferIndex); iterP != predBuffer.end(); ++iterP)
         {
             m = (*iterP).getMessage();
-            if (! m.isNoteOnorOff())
+            if (! m.isNoteOnOrOff())
                 continue;
             predBufferIndex = m.getRawData(); //
             
@@ -431,7 +434,7 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
             for (juce::MidiBufferIterator iterL(liveBufferIndex); iterL != liveBuffer.end(); ++iterL)
             {
                 m2 = (*iterL).getMessage();
-                if (! m2.isNoteOnorOff())
+                if (! m2.isNoteOnOrOff())
                     continue;
                 liveBufferIndex = m2.getRawData(); //
                 if ((*iterL).getMessage().getNoteNumber() == m.getNoteNumber())
@@ -597,7 +600,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     //     tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
     // 4.
     
-    int predictionCase = 2; // 1 - Playback recording as is
+    int predictionCase = 3; // 1 - Playback recording as is
 //    int PLAYBACK = 1;
 //    int PAUSE = 2;
 //    int TEMPO_EXP = 3;
@@ -622,8 +625,8 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         // 3. Implement rough tempo tracking pt 1: (calc note density using number of notes played so far)
         // next process m according to new tempo
         // noteDensity_pred(n) = a*noteDensity_pred(n-1) + (1-a)*noteDensity_network(n-lag)
-        num_notes_recorded = 0; // TO DO: update with prediction buffer (prevPredictions[predictionBufferIndex])
-        num_notes_network = 0; // TO DO: update with curr buffer (midiMessages)
+        num_notes_recorded += prevPredictions[predictionBufferIndex].getNumEvents();
+        num_notes_network += liveBuffer.getNumEvents();
         float noteDensity_network = num_notes_network/ num_notes_recorded; // tempo estimation using number of notes played so far as compared to recording.
         noteDensity_pred = alpha*noteDensity_pred + (1-alpha) * noteDensity_network;
     } else {
