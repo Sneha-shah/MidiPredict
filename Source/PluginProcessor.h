@@ -91,7 +91,7 @@ private:
 
   void runUnitTests(bool runAll = false);
     
-    float sampleRate_;
+    volatile float sampleRate_;
     
     // For file reading and data storage
   std::vector<juce::MidiBuffer> prevPredictions;

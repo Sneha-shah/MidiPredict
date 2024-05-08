@@ -296,12 +296,12 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     }
     
     // First reading midi file for recorded practice performance
-    auto myMidiFile = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+    auto myMidiFile_rec = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
       .getChildFile ("Contents")
       .getChildFile ("Resources")
       .getChildFile ("ladispute_1.mid");
-    jassert(myMidiFile.existsAsFile());
-    std::vector<juce::MidiBuffer> recordedMidi = readMIDIFile(myMidiFile, sampleRate, samplesPerBlock); // TO DO: only read lag number of blocks
+    jassert(myMidiFile_rec.existsAsFile());
+    std::vector<juce::MidiBuffer> recordedMidi = readMIDIFile(myMidiFile_rec, sampleRate, samplesPerBlock); // TO DO: only read lag number of blocks, and read with speedShift
     int currentBufferIndexRec = 0;
     currentPositionRecMidi = 0;
     currentPositionRecSamples = 0;
@@ -320,23 +320,25 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     }
     predictionBufferIndex = 0;
     
-    recordedMidiSequence = readMIDIFile(myMidiFile, sampleRate, 0.5);
+    recordedMidiSequence = readMIDIFile(myMidiFile_rec, sampleRate, 0.5);
     unmatchedNotes_pred.clear();
     unmatchedNotes_live.clear();
     
-    auto myMidiFile2 = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+    auto myMidiFile_live = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
       .getChildFile ("Contents")
       .getChildFile ("Resources")
       .getChildFile ("ladispute_1.mid");
-    jassert(myMidiFile2.existsAsFile());
-    liveMidi = readMIDIFile(myMidiFile2, sampleRate, samplesPerBlock);
+    jassert(myMidiFile_live.existsAsFile());
+    liveMidi = readMIDIFile(myMidiFile_live, sampleRate, samplesPerBlock);
     currentBufferIndexLive = 0;
     
     synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
     
+    // For PausePlay Predictions wwith Iterator
     liveBufferIndex = nullptr;
     predBufferIndex = nullptr;
     
+    // For Note Density Prediction
     noteDensity_pred = 1;
     num_notes_predicted = 0;
     num_notes_network = 0;
@@ -348,7 +350,6 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     prev50LiveIndex = 0;
 
     sampleRate_ = sampleRate;
-    
 }
 
 void PluginProcessor::releaseResources()
@@ -594,13 +595,6 @@ void PluginProcessor::updateNoteDensity(juce::MidiBuffer& predBuffer, juce::Midi
     float noteDensity_network = num_notes_network/ num_notes_predicted; // tempo estimation using number of notes played so far as compared to prediction
 //    noteDensity_pred = alpha*noteDensity_pred + (1-alpha) * noteDensity_network;
     noteDensity_pred = alpha * noteDensity_pred + (1-alpha) * noteDensity_pred * noteDensity_network;
-
-//    if (noteDensity_pred < 0.5) {
-//        noteDensity_pred = 0.5;
-//    }
-//    if (noteDensity_pred > 3) {
-//        noteDensity_pred = 3;
-//    }
 }
 
 void PluginProcessor::getBuffers(int numSamples) {
