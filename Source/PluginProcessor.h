@@ -39,8 +39,10 @@ public:
   bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
 #endif
 
-  void combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples);
-  bool checkIfPause(juce::MidiBuffer& a, juce::MidiBuffer& b);
+  void combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples, int offset);
+  bool checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
+    void updateNoteDensity(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
+    void getBuffers(int numSamples);
   void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
   //==============================================================================
@@ -88,26 +90,39 @@ private:
   juce::MidiKeyboardState midiKeyboardState;
 
   void runUnitTests(bool runAll = false);
-
+    
+    float sampleRate_;
+    
+    // For file reading and data storage
   std::vector<juce::MidiBuffer> prevPredictions;
+    int predictionBufferIndex;
+//  std::vector<juce::MidiBuffer> prevRecordedBlocks;
+//    int prevRecordedBlocksIndex;
   std::vector<juce::MidiBuffer> liveMidi;
+    int currentBufferIndexLive;
   juce::MidiMessageSequence recordedMidiSequence;
-  juce::MidiMessageSequence unmatchedNotes_pred;
-  juce::MidiMessageSequence unmatchedNotes_live;
+    int currentPositionRecMidi;
+    int currentPositionRecSamples;
+  juce::MidiBuffer recordedBuffer;
+  juce::MidiBuffer liveBuffer;
+    int lag; // in number of blocks
+    
+    // For PausePlay Prediction
     const juce::uint8* liveBufferIndex;
     const juce::uint8* predBufferIndex;
-    juce::MidiBuffer recordedBuffer;
-    juce::MidiBuffer liveBuffer;
-  int currentBufferIndexLive;
-  int currentPositionRecMidi;
-  int currentPositionRecSamples;
-    float sampleRate_;
-  int lag; // in number of blocks
-  int predictionBufferIndex;
+    juce::MidiMessageSequence unmatchedNotes_pred;
+    juce::MidiMessageSequence unmatchedNotes_live;
+    
+    // For Note Density Prediction
   float noteDensity_pred;
-  float num_notes_recorded;
+  float num_notes_predicted;
   float num_notes_network;
   float alpha; // alpha for tempo estimation
+    int numBlocksForDensity;
+    std::vector<int> prev50Pred;
+    std::vector<int> prev50Live;
+    int prev50PredIndex;
+    int prev50LiveIndex;
     
 //    juce::AudioProcessorValueTreeState treeState;
 //    juce::Synthesiser      synthesiser;
