@@ -683,7 +683,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     for (const auto meta : recordedBuffer)
     {
         m = meta.getMessage();
-//            m.setNoteNumber(m.getNoteNumber()+7); // Changing key/ octave to differentiate from live performance
         midiKeyboardState.processNextMidiEvent(m); // Let PGM display current note
         auto description = m.getDescription();
         if (DEBUG_FLAG) {
@@ -722,7 +721,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     //    combineEvents(midiCombined, recordedBuffer, buffer.getNumSamples());
     //    combineEvents(midiCombined, recordedBuffer2, buffer.getNumSamples());
 //    if (!isPaused)
-        combineEvents(midiCombined, prevPredictions[predictionBufferIndex], -1, 7); // Uses addEvents with MidiBuffer&
+        combineEvents(midiCombined, prevPredictions[predictionBufferIndex], -1, 0); // Uses addEvents with MidiBuffer&
     combineEvents(midiCombined, liveBuffer);
     combineEvents(midiCombined, midiMessages);
     
