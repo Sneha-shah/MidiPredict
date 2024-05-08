@@ -403,8 +403,8 @@ void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, in
         // Check if the message is a note on or note off event
         if (m.isNoteOnOrOff())
         {
-            juce::MidiMessage newMsg(m);
-            newMsg.setNoteNumber(m.getNoteNumber() + offset);
+            const juce::uint8 vel = m.getVelocity();
+            juce::MidiMessage newMsg = juce::MidiMessage::noteOn(m.getChannel(),m.getNoteNumber() + offset,vel);
             
             // Add the new message to buffer a with the original timestamp
             a.addEvent(newMsg, m.getTimeStamp());
