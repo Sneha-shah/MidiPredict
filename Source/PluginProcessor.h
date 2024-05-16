@@ -41,6 +41,7 @@ public:
 
   void combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples, int offset);
   bool checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
+    bool searchLive(juce::MidiMessage m);
     void updateNoteDensity(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
     void getBuffers(int numSamples);
   void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
