@@ -31,7 +31,7 @@ public:
   ~PluginProcessor() override;
 
   //==============================================================================
-  juce::MidiBuffer generateMidiBuffer(const juce::MidiMessageSequence& midiMessageSequence, double sampleRate, int blockSize);
+  juce::MidiBuffer generateMidiBuffer(const juce::MidiMessageSequence& midiMessageSequence, double sampleRate, int readSamples);
   void prepareToPlay (double sampleRate, int samplesPerBlock) override;
   void releaseResources() override;
 
@@ -40,10 +40,10 @@ public:
 #endif
 
   void combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples, int offset);
-  bool checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
+  bool checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer, int blockSize);
     bool searchLive(juce::MidiMessage m);
     void updateNoteDensity(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
-    void getBuffers(int numSamples);
+    void getBuffers(int blockSize);
   void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
   //==============================================================================
@@ -109,10 +109,11 @@ private:
     int lag; // in number of blocks
     
     // For PausePlay Prediction
-    const juce::uint8* liveBufferIndex;
-    const juce::uint8* predBufferIndex;
     juce::MidiMessageSequence unmatchedNotes_pred;
     juce::MidiMessageSequence unmatchedNotes_live;
+    int timeBetween; //in samples
+    int timeAdjLive;
+    int timeAdjPred;
     
     // For Note Density Prediction
   float noteDensity_pred;
