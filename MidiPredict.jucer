@@ -32,6 +32,8 @@
             xcodeResource="1"/>
       <FILE id="V6V7ZA" name="ladispute_4.mid" compile="0" resource="1" file="Resources/ladispute_4.mid"
             xcodeResource="1"/>
+      <FILE id="l9WQJI" name="ladispute_5.mid" compile="0" resource="1" file="Resources/ladispute_5.mid"
+            xcodeResource="1"/>
       <FILE id="MQJbPU" name="MidiPredict.xml" compile="0" resource="1" file="Resources/MidiPredict.xml"
             xcodeResource="1"/>
     </GROUP>

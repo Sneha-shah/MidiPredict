@@ -213,7 +213,7 @@ std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sa
                     
                     int blockIndex = static_cast<int>(speedShift * timeStamp_sec * sampleRate / blockSize);
                     
-                    if (blockIndex > numBlocks)
+                    if (blockIndex >= numBlocks)
                         break;
 
                     // Create a buffer for this block if not created yet
@@ -340,7 +340,6 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
       .getChildFile ("ladispute_1.mid");
     jassert(myMidiFile_rec.existsAsFile());
     recordedMidiSequence = readMIDIFile(myMidiFile_rec, sampleRate, speedChange);
-    predictionBufferIndex = 0;
     currentPositionRecMidi = 0;
     currentPositionRecSamples = 0;
     lagPositionPredSamples = 0;
@@ -350,21 +349,22 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     std::vector<juce::MidiBuffer> recordedMidi = readMIDIFile(myMidiFile_rec, sampleRate, samplesPerBlock, lag, speedChange);
     for(int i=0; i<lag; i++)
     {
-        prevPredictions.push_back(recordedMidi[predictionBufferIndex]);
-        currentPositionRecMidi += recordedMidi[predictionBufferIndex].getNumEvents();
+        prevPredictions.push_back(recordedMidi[i]);
+        currentPositionRecMidi += recordedMidi[i].getNumEvents();
         currentPositionRecSamples += samplesPerBlock;
-        ++predictionBufferIndex;
         
 //        prevRecordedBlocks.push_back(recordedMidi[currentBufferIndexRec]);
 //        ++prevRecordedBlocksIndex;
     }
     predictionBufferIndex = 0;
+    predictionPlaybackIndex = 0;
     
+    // Prepare Synth
     synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
     
     // For PausePlay Predictions
     timeBetween = 0.2 * sampleRate; // samples
-    isPaused = new std::vector<int>(lag,0);
+    isPaused = new std::vector<bool>(lag,false);
     unmatchedNotes_pred.clear();
     unmatchedNotes_live.clear();
     
@@ -763,8 +763,8 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     juce::MidiBuffer midiCombined; // midi file + current keyboard // ideally use different voices for each playback
     //    combineEvents(midiCombined, recordedBuffer, buffer.getNumSamples());
     //    combineEvents(midiCombined, recordedBuffer2, buffer.getNumSamples());
-    combineEvents(midiCombined, prevPredictions[predictionBufferIndex], -1, 7); // Uses addEvents with MidiBuffer&
-    combineEvents(midiCombined, liveBuffer);
+    combineEvents(midiCombined, prevPredictions[predictionBufferIndex], -1, 0); // Uses addEvents with MidiBuffer&
+//    combineEvents(midiCombined, liveBuffer);
     combineEvents(midiCombined, midiMessages);
     
     // play prediction notes using synthesizer

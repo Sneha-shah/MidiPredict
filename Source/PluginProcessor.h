@@ -99,6 +99,7 @@ private:
     // For file reading and data storage
   std::vector<juce::MidiBuffer> prevPredictions;
     int predictionBufferIndex;
+    int predictionPlaybackIndex;
 //  std::vector<juce::MidiBuffer> prevRecordedBlocks;
 //    int prevRecordedBlocksIndex;
   std::vector<juce::MidiBuffer> liveMidi;
@@ -117,7 +118,7 @@ private:
     int timeBetween; //in samples
     int timeAdjLive;
     int timeAdjPred;
-    std::vector<int> *isPaused;
+    std::vector<bool> *isPaused;
     
     // For Note Density Prediction
   float noteDensity_pred;
