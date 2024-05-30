@@ -44,6 +44,8 @@ public:
     bool searchLive(juce::MidiMessage m);
     void updateNoteDensity(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
     void getBuffers(int blockSize);
+    bool setPredictionVariables(int predictionCase, int numSamples);
+    juce::MidiBuffer generate_prediction(int numSamples, bool paused);
   void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
   //==============================================================================
@@ -104,6 +106,7 @@ private:
   juce::MidiMessageSequence recordedMidiSequence;
     int currentPositionRecMidi;
     int currentPositionRecSamples;
+    int lagPositionPredSamples;
   juce::MidiBuffer recordedBuffer;
   juce::MidiBuffer liveBuffer;
     int lag; // in number of blocks
@@ -114,6 +117,7 @@ private:
     int timeBetween; //in samples
     int timeAdjLive;
     int timeAdjPred;
+    std::vector<int> *isPaused;
     
     // For Note Density Prediction
   float noteDensity_pred;
