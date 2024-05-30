@@ -194,7 +194,10 @@ std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sa
         if (midiFileData.readFrom(fileInputStream))
         {
             midiFileData.convertTimestampTicksToSeconds(); // Convert units from ticks to seconds
-            int numBlocks = std::min(static_cast<int>(midiFileData.getLastTimestamp() * speedShift * sampleRate / blockSize) + 1, maxBlocks);
+            int numBlocks = static_cast<int>(midiFileData.getLastTimestamp() * speedShift * sampleRate / blockSize) + 1;
+            if (maxBlocks > 0) {
+                numBlocks = std::min(numBlocks, maxBlocks);
+            }
             std::vector<juce::MidiBuffer> midiBuffers(numBlocks); // Initialize vector
 
             // For every track
@@ -321,7 +324,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     }
     
     // For testing
-    double speedChange = 1.0;
+    double speedChange = 2.0;
     auto myMidiFile_live = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
       .getChildFile ("Contents")
       .getChildFile ("Resources")
@@ -369,7 +372,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     noteDensity_pred = 1;
     num_notes_predicted = 0;
     num_notes_network = 0;
-    alpha = 0.9;
+    alpha = 0.95;
     numBlocksForDensity = 10 * sampleRate/samplesPerBlock; // Convert seconds to blocks // How to set?
     prev50Pred = std::vector<int>(numBlocksForDensity);
     prev50Live = std::vector<int>(numBlocksForDensity);
@@ -740,7 +743,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // Source 2 (rn from file) liveBuffer - 1 block
     getBuffers(buffer.getNumSamples());
     
-    int predictionCase = 2;
+    int predictionCase = 3;
 //    int PLAYBACK = 1; // Playback midi file as is DONE
 //    int PAUSE = 2; // Playback midi file, and if delayed input, pause playback. Add a 1 block speedup when live is ahead
 //    int TEMPO_EXP = 3; // Implement tempo tracking: tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
