@@ -43,7 +43,7 @@ public:
   bool checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer, int blockSize);
     bool searchLive(juce::MidiMessage m);
     void updateNoteDensity(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer);
-    void getBuffers(int blockSize);
+    void getBuffers(int blockSize, juce::MidiBuffer& midiMessages);
     bool setPredictionVariables(int predictionCase, int numSamples);
     juce::MidiBuffer generate_prediction(int numSamples, bool paused);
   void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
@@ -95,6 +95,7 @@ private:
   void runUnitTests(bool runAll = false);
     
     volatile float sampleRate_;
+    int MODE = 0; // 0 -> Testing (Live from file), 1 -> Live from buffer
     
     // For file reading and data storage
   std::vector<juce::MidiBuffer> prevPredictions;
@@ -118,7 +119,6 @@ private:
     int timeBetween; //in samples
     int timeAdjLive;
     int timeAdjPred;
-    std::vector<bool> *isPaused;
     
     // For Note Density Prediction
   float noteDensity_pred;

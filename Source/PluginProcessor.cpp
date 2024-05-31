@@ -325,13 +325,17 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     
     // For testing
     double speedChange = 2.0;
-    auto myMidiFile_live = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
-      .getChildFile ("Contents")
-      .getChildFile ("Resources")
-      .getChildFile ("ladispute_1.mid");
-    jassert(myMidiFile_live.existsAsFile());
-    liveMidi = readMIDIFile(myMidiFile_live, sampleRate, samplesPerBlock);
-    currentBufferIndexLive = 0;
+    if (MODE == 0) {
+        auto myMidiFile_live = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
+            .getChildFile ("Contents")
+            .getChildFile ("Resources")
+            .getChildFile ("ladispute_paused.mid");
+        jassert(myMidiFile_live.existsAsFile());
+        liveMidi = readMIDIFile(myMidiFile_live, sampleRate, samplesPerBlock);
+        currentBufferIndexLive = 0;
+    }
+    else if (MODE==1) 
+        currentBufferIndexLive = -1;
     
     // First reading midi file for recorded practice performance
     auto myMidiFile_rec = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
@@ -364,7 +368,6 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     
     // For PausePlay Predictions
     timeBetween = 0.2 * sampleRate; // samples
-    isPaused = new std::vector<bool>(lag,false);
     unmatchedNotes_pred.clear();
     unmatchedNotes_live.clear();
     
@@ -628,9 +631,12 @@ void PluginProcessor::updateNoteDensity(juce::MidiBuffer& predBuffer, juce::Midi
     noteDensity_pred = alpha * noteDensity_pred + (1-alpha) * noteDensity_pred * noteDensity_network;
 }
 
-void PluginProcessor::getBuffers(int blockSize) {
+void PluginProcessor::getBuffers(int blockSize, juce::MidiBuffer& midiMessages) {
     recordedBuffer = generateMidiBuffer(recordedMidiSequence, getSampleRate(), ((int)noteDensity_pred+1)*blockSize); // read req blocks of rec data
-    liveBuffer = liveMidi[currentBufferIndexLive];
+    if (MODE == 0)
+        liveBuffer = liveMidi[currentBufferIndexLive];
+    else if (MODE == 1)
+        liveBuffer = midiMessages;
 
     ++currentBufferIndexLive;
     
@@ -665,7 +671,7 @@ bool PluginProcessor::setPredictionVariables(int predictionCase, int numSamples)
         paused = checkIfPause(prevPredictions[predictionBufferIndex], liveBuffer, numSamples);
         if (DEBUG_FLAG) {
             std::cout << "isPaused: " << paused << std::endl;
-            if (isPaused) {
+            if (paused) {
                 std::cout << std::endl;
             }
         }
@@ -741,17 +747,17 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     
     // Source 1 (history) recordedBuffer - 2 blocks (lag amount of time in the future of live)
     // Source 2 (rn from file) liveBuffer - 1 block
-    getBuffers(buffer.getNumSamples());
+    getBuffers(buffer.getNumSamples(), midiMessages);
     
     int predictionCase = 3;
 //    int PLAYBACK = 1; // Playback midi file as is DONE
 //    int PAUSE = 2; // Playback midi file, and if delayed input, pause playback. Add a 1 block speedup when live is ahead
 //    int TEMPO_EXP = 3; // Implement tempo tracking: tempo_prac(n) = a*tempo_prac(n-1) + (1-a)*tempo_network(n-lag)
-    (*isPaused)[predictionBufferIndex] = setPredictionVariables(predictionCase, buffer.getNumSamples());
+    bool isPaused = setPredictionVariables(predictionCase, buffer.getNumSamples());
     
     // Use recordedBuffer to generate midiPrediction for playback
     // Sets isPaused through return and noteDensity_pred internally
-    juce::MidiBuffer midiPrediction = generate_prediction(buffer.getNumSamples(), (*isPaused)[predictionBufferIndex]);
+    juce::MidiBuffer midiPrediction = generate_prediction(buffer.getNumSamples(), isPaused);
     
     // Process midi events and buffer for synthesizer
     juce::AudioSourceChannelInfo bufferInfo;
@@ -764,7 +770,7 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     //    combineEvents(midiCombined, recordedBuffer, buffer.getNumSamples());
     //    combineEvents(midiCombined, recordedBuffer2, buffer.getNumSamples());
     combineEvents(midiCombined, prevPredictions[predictionBufferIndex], -1, 0); // Uses addEvents with MidiBuffer&
-//    combineEvents(midiCombined, liveBuffer);
+    combineEvents(midiCombined, liveBuffer);
     combineEvents(midiCombined, midiMessages);
     
     // play prediction notes using synthesizer
@@ -774,19 +780,12 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     // For plugin to forward it (Midi Filter Plugin case)
     midiMessages.swapWith (prevPredictions[predictionBufferIndex]); 
     
-    // Update prediction buffer vector
-    if ((*isPaused)[predictionBufferIndex]) {
-        prevPredictions[predictionBufferIndex] = midiPrediction;
-    } else {
-        prevPredictions[predictionBufferIndex] = midiPrediction;
-        predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
+    // Update prediction buffer vectorde
+    prevPredictions[predictionBufferIndex] = midiPrediction;
+    predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
+    lagPositionPredSamples += buffer.getNumSamples();
+    if (!isPaused)
         currentPositionRecSamples += buffer.getNumSamples()*noteDensity_pred;
-        lagPositionPredSamples += buffer.getNumSamples();
-    }
-//    prevPredictions[predictionBufferIndex] = midiPrediction;
-//    predictionBufferIndex = (predictionBufferIndex+1) % prevPredictions.size();
-//    if (!(*isPaused)[predictionBufferIndex])
-//        currentPositionRecSamples += buffer.getNumSamples()*noteDensity_pred;
     
 //    if (DEBUG_FLAG)
 //        p50b(prevPredictions, "\nprevpred", 20);

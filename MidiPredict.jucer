@@ -22,6 +22,8 @@
             file="Source/SynthAudioSource.h"/>
     </GROUP>
     <GROUP id="{70F08FD7-80A1-8310-73F4-3E001B6AF4C6}" name="Resources">
+      <FILE id="jt5ptt" name="ladispute_paused.mid" compile="0" resource="1"
+            file="Resources/ladispute_paused.mid" xcodeResource="1"/>
       <FILE id="Er6osY" name="ladispute.mid" compile="0" resource="1" file="Resources/ladispute.mid"
             xcodeResource="1"/>
       <FILE id="H04GEi" name="ladispute_1.mid" compile="0" resource="1" file="Resources/ladispute_1.mid"
