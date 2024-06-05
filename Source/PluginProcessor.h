@@ -31,6 +31,7 @@ public:
   ~PluginProcessor() override;
 
   //==============================================================================
+    void printClassState();
   juce::MidiBuffer generateMidiBuffer(const juce::MidiMessageSequence& midiMessageSequence, double sampleRate, int readSamples);
   void prepareToPlay (double sampleRate, int samplesPerBlock) override;
   void releaseResources() override;
@@ -84,7 +85,7 @@ public:
 
 private:
 
-  bool DEBUG_FLAG = 1;
+  bool DEBUG_FLAG = 0;
     
   juce::String currentChord = "no Chord in Processor";
   std::array<int,12> pitchClassesPresent { 0 };
@@ -95,7 +96,7 @@ private:
   void runUnitTests(bool runAll = false);
     
     volatile float sampleRate_;
-    int MODE = 0; // 0 -> Testing (Live from file), 1 -> Live from buffer
+    int MODE = 1; // 0 -> Testing (Live from file), 1 -> Live from buffer
     
     // For file reading and data storage
   std::vector<juce::MidiBuffer> prevPredictions;

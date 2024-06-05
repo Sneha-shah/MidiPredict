@@ -168,6 +168,42 @@ void PluginProcessor::changeProgramName (int index, const juce::String& newName)
 
 //==============================================================================
 
+void PluginProcessor::printClassState() {
+    std::cout << "Note density in curr block is: " << noteDensity_pred << std::endl;
+    p50b(prevPredictions, "prevpred", 20);
+    bufferVals(liveBuffer, "liveBuff");
+    bufferVals(recordedBuffer, "recBuff");
+//    bufferVals(predBuffer, "predBuff");
+    seqVals(unmatchedNotes_pred, "unmatched_pred");
+    seqVals(unmatchedNotes_live, "unmatched_live");
+    std::cout << "timeAdjLive: " << timeAdjLive << std::endl;
+    std::cout << "timeAdjPred: " << timeAdjPred << std::endl;
+    std::cout << "timeBetween: " << timeBetween << std::endl;
+    
+//      int predictionBufferIndex;
+//      int predictionPlaybackIndex;
+//      int currentBufferIndexLive;
+//      int currentPositionRecMidi;
+//      int currentPositionRecSamples;
+//      int lagPositionPredSamples;
+//      
+//      // For PausePlay Prediction
+//      juce::MidiMessageSequence unmatchedNotes_pred;
+//      juce::MidiMessageSequence unmatchedNotes_live;
+      
+      // For Note Density Prediction
+//    float noteDensity_pred;
+//    float num_notes_predicted;
+//    float num_notes_network;
+//    float alpha; // alpha for tempo estimation
+//      int numBlocksForDensity;
+//      std::vector<int> prev50Pred;
+//      std::vector<int> prev50Live;
+//      int prev50PredIndex;
+//      int prev50LiveIndex;
+}
+
+
 /**
     Reads a MIDI file and generates MIDI buffers for each block - returns as a vector of MIDI buffers.
 
@@ -375,7 +411,7 @@ void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     noteDensity_pred = 1;
     num_notes_predicted = 0;
     num_notes_network = 0;
-    alpha = 0.95;
+    alpha = 0.99;
     numBlocksForDensity = 10 * sampleRate/samplesPerBlock; // Convert seconds to blocks // How to set?
     prev50Pred = std::vector<int>(numBlocksForDensity);
     prev50Live = std::vector<int>(numBlocksForDensity);
@@ -468,36 +504,6 @@ void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, in
     @return True if the note is  found in the live buffer,
             False if the note is not found in the live buffer.
 */
-//bool PluginProcessor::searchLive(juce::MidiMessage m) { // OLD WORKING VERSION
-//    bool pause = false; // Flag to indicate pause condition
-//    bool found = false; // Flag to indicate if note is found
-//    for (int i=0; i<1 && i<unmatchedNotes_live.getNumEvents(); i++) {
-//        if (unmatchedNotes_live.getEventPointer(i)->message.getNoteNumber() == m.getNoteNumber())
-//        {
-//            found = true; // Note Found
-//            unmatchedNotes_live.deleteEvent(i,0);
-//            break;
-//        }
-//    }
-//    // If note not found, set pause flag
-//    if (!found)
-//    {
-//        pause = true;
-//    }
-//    return found;
-//}
-
-/**
-    Searches for a MIDI note in the live buffer and returns a pause flag for checkIfPause.
-
-    This function searches for a MIDI note in the live buffer (`unmatchedNotes_live`).
-    If the note is found, it deletes the corresponding event from the buffer.
-    If the note is not found, it sets the pause flag to true.
-
-    @param m The MIDI message representing the note to search for.
-    @return True if the note is  found in the live buffer,
-            False if the note is not found in the live buffer.
-*/
 bool PluginProcessor::searchLive(juce::MidiMessage m) { // New version to allow interchanged notes that should be simultaneous
     bool found = false; // Flag to indicate if note is found
     juce::MidiMessage mLive;
@@ -507,7 +513,7 @@ bool PluginProcessor::searchLive(juce::MidiMessage m) { // New version to allow 
         if (mLive.getTimeStamp() - timeAdjLive < m.getTimeStamp() - timeBetween - timeAdjPred) { // Also need to take into account how much live and prediction are out of sync by
 //            unmatchedNotes_live.deleteEvent(i,0);
 //            i--;
-            std::cout << std::endl << "\nExtra Note found in LIVE!!" << std::endl;
+//            std::cout << std::endl << "\nExtra Note found in LIVE!!" << std::endl;
 //            std::cout << "DELETED EVENT" << std::endl;
 //            break;
         }
@@ -717,23 +723,12 @@ juce::MidiBuffer PluginProcessor::generate_prediction(int numSamples, bool pause
 
         if(time_samp >= numSamples)
             break;
-        
-//        if (m.isNoteOn()) { // exercise MIDI out
-//        } else if (m.isNoteOff()) {
-//            // Cancel pitchbend?
-//        } else if (m.isAftertouch()) {
-//            // Do something with aftertouch?
-//        } else if (m.isPitchWheel()) {
-//            // You could save the last note number and add pitchbend to that and convert according to your transformation
-//        }
     }
     return midiPrediction;
 }
 
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    // PROCESS MIDI DATA
-    
     if (sampleRate_ == 0.0) {
         // Sample rate not set, return without processing
         return;
@@ -786,9 +781,6 @@ void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     lagPositionPredSamples += buffer.getNumSamples();
     if (!isPaused)
         currentPositionRecSamples += buffer.getNumSamples()*noteDensity_pred;
-    
-//    if (DEBUG_FLAG)
-//        p50b(prevPredictions, "\nprevpred", 20);
 }
 
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
