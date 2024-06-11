@@ -28,45 +28,153 @@
 //==============================================================================
 
 
-void bufferVals(juce::MidiBuffer& a, juce::String name = "") {
+/**
+ * @brief Prints the details of each MIDI event in a given MIDI buffer.
+ *
+ * This function iterates through all the MIDI events in the provided MIDI buffer and
+ * prints their descriptions and timestamps. It also outputs the buffer's name if provided.
+ *
+ * @param a The MIDI buffer to iterate through and print event details.
+ * @param name (Optional) The name of the buffer, used for labeling the output.
+ *
+ * @note The function uses standard output (std::cout) for printing the details.
+ */
+void bufferVals(juce::MidiBuffer& a, juce::String name = "")
+{
+    // Print the name of the buffer if provided.
     std::cout << name << ":" << std::endl;
-    for(const auto meta: a) {
-        std::cout << "MIDI Event: " << meta.getMessage().getDescription() << ", " << meta.getMessage().getTimeStamp() << std::endl;
+
+    // Iterate through each MIDI event in the buffer.
+    for (const auto meta : a)
+    {
+        // Print the description and timestamp of each MIDI event.
+        std::cout << "MIDI Event: " << meta.getMessage().getDescription()
+                  << ", " << meta.getMessage().getTimeStamp() << std::endl;
     }
+
+    // Print the end marker for the buffer.
     std::cout << "end " << name << std::endl;
 }
 
-void seqVals(juce::MidiMessageSequence& a, juce::String name = "") {
+/**
+ * @brief Prints the details of each MIDI event in a given MIDI message sequence.
+ *
+ * This function iterates through all the MIDI events in the provided MIDI message sequence and
+ * prints their descriptions and timestamps. It also outputs the sequence's name if provided.
+ *
+ * @param a The MIDI message sequence to iterate through and print event details.
+ * @param name (Optional) The name of the sequence, used for labeling the output.
+ *
+ * @note The function uses standard output (std::cout) for printing the details.
+ */
+void seqVals(juce::MidiMessageSequence& a, juce::String name = "") 
+{
+    // Print the name of the sequence if provided.
     std::cout << name << ":" << std::endl;
-    for(const auto meta: a) {
+    
+    // Iterate through each MIDI event in the sequence.
+    for(const auto meta: a) 
+    {
+        // Print the description and timestamp of each MIDI event.
         std::cout << "MIDI Event: " << meta->message.getDescription() << ", " << meta->message.getTimeStamp() << std::endl;
     }
+    
+    // Print the end marker for the sequence.
     std::cout << "end " << name << std::endl;
 }
 
-void p50s(juce::MidiMessageSequence& a, juce::String name = "", int n = 50) {
+/**
+ * @brief Prints details of the first `n` MIDI events in a given MIDI message sequence.
+ *
+ * This function iterates through the first `n` MIDI events in the provided MIDI message sequence and
+ * prints their descriptions and timestamps. It also outputs the sequence's name if provided.
+ *
+ * @param a The MIDI message sequence to iterate through and print event details.
+ * @param name (Optional) The name of the sequence, used for labeling the output. Defaults to an empty string.
+ * @param n The number of MIDI events to print from the start of the sequence. Defaults to 50.
+ *
+ * @note The function uses standard output (std::cout) for printing the details.
+ * @warning Ensure `n` does not exceed the number of events in the sequence to avoid out-of-bounds access.
+ */
+void p50s(juce::MidiMessageSequence& a, juce::String name = "", int n = 50) 
+{
+    // Print the name of the sequence if provided.
     std::cout << name << ":" << std::endl;
-    for (int i=0; i<n; i++) {
-        std::cout << "MIDI Event: "<< a.getEventPointer(i)->message.getDescription() << ", " << a.getEventPointer(i)->message.getTimeStamp() << std::endl;
+    
+    // Iterate through the first `n` MIDI events in the sequence.
+    for (int i=0; i<n; i++) 
+    {
+        // Check if the event index is within the bounds of the sequence.
+        if (i >= a.getNumEvents())
+        {
+            std::cout << "End of available MIDI events in the sequence." << std::endl;
+            break;
+        }
+        
+        // Access the event at index `i` and print its description and timestamp.
+        auto eventPointer = a.getEventPointer(i);
+        if (eventPointer != nullptr) // Ensure the event pointer is valid.
+        {
+            std::cout << "MIDI Event: "<< eventPointer->message.getDescription() << ", " << eventPointer->message.getTimeStamp() << std::endl;
+        }
+        else
+        {
+            std::cout << "Invalid MIDI event at index " << i << "." << std::endl;
+        }
     }
+    
+    // Print the end marker for the sequence.
     std::cout << "end " << name << std::endl;
 }
 
-void p50b(std::vector<juce::MidiBuffer>& a, juce::String name = "", int n = 50) {
+/**
+ * @brief Prints details of the first `n` MIDI events from a vector of MIDI buffers.
+ *
+ * This function iterates through the provided vector of `juce::MidiBuffer` objects and prints the details
+ * of the first `n` MIDI events, including their descriptions and timestamps. The timestamps are adjusted
+ * to account for the buffer index and a block size of 512 samples.
+ *
+ * @param a A vector of `juce::MidiBuffer` objects from which to print MIDI event details.
+ * @param name (Optional) The name of the collection, used for labeling the output. Defaults to an empty string.
+ * @param n The number of MIDI events to print. Defaults to 50.
+ *
+ * @note The function outputs details using standard output (std::cout).
+ * @warning Ensure that `n` does not exceed the total number of events across all buffers to avoid premature termination.
+ */
+void p50b(std::vector<juce::MidiBuffer>& a, juce::String name = "", int n = 50)
+{
+    // Print the name of the collection if provided.
     std::cout << name << ":" << std::endl;
-    int count = 0;
-    int buffNum = 0;
-    for (const auto& buff: a) {
-        for(const auto meta: buff) {
-            std::cout << "MIDI Event: "<< meta.getMessage().getDescription() << ", " << (meta.getMessage().getTimeStamp()) << "  " << (meta.getMessage().getTimeStamp())+(512*buffNum) << std::endl; // 512 block size
-            count++;
+    
+    int count = 0;     // Counter for the number of events printed.
+    int buffNum = 0;   // Counter for the current buffer index.
+    
+    // Iterate through each buffer in the vector.
+    for (const auto& buff: a) 
+    {
+        // Iterate through each MIDI event in the buffer.
+        for(const auto meta: buff)
+        {
+            // Print the MIDI event description and timestamps.
+            std::cout << "MIDI Event: "<< meta.getMessage().getDescription() 
+                      << ", " << (meta.getMessage().getTimeStamp()) << "  "
+                      << (meta.getMessage().getTimeStamp())+(512*buffNum)
+                      << std::endl; // assume512 block size
+            count++; // Increment the event counter.
+            
+            // Break if the required number of events have been printed.
             if(count>=n)
                 break;
         }
-        buffNum++;
+        
+        buffNum++; // Increment the buffer index.
+        
+        // Break if the required number of events have been printed.
         if(count>=n)
             break;
     }
+    
+    // Print the end marker for the collection.
     std::cout << "end " << name << std::endl;
 }
 
@@ -168,87 +276,102 @@ void PluginProcessor::changeProgramName (int index, const juce::String& newName)
 
 //==============================================================================
 
+/**
+ * @brief Prints the current state of the PluginProcessor class to the standard output.
+ *
+ * This function outputs various state information of the PluginProcessor class, including MIDI buffer
+ * contents, sequence values, timing adjustments, buffer indices, and note density metrics. The information
+ * is printed to the standard output (std::cout).
+ *
+ * The function helps in debugging by providing a snapshot of the internal state of the class at a given
+ * moment.
+ *
+ * @note Ensure that this function is called during debugging to avoid cluttering the standard output in production.
+ */
 void PluginProcessor::printClassState() {
     std::cout << "Note density in curr block is: " << noteDensity_pred << std::endl;
     p50b(prevPredictions, "prevpred", 20);
     bufferVals(liveBuffer, "liveBuff");
     bufferVals(recordedBuffer, "recBuff");
-//    bufferVals(predBuffer, "predBuff");
+//    bufferVals(predBuffer, "predBuff"); // not class variable
+    
     seqVals(unmatchedNotes_pred, "unmatched_pred");
     seqVals(unmatchedNotes_live, "unmatched_live");
+    
     std::cout << "timeAdjLive: " << timeAdjLive << std::endl;
     std::cout << "timeAdjPred: " << timeAdjPred << std::endl;
     std::cout << "timeBetween: " << timeBetween << std::endl;
     
-//      int predictionBufferIndex;
-//      int predictionPlaybackIndex;
-//      int currentBufferIndexLive;
-//      int currentPositionRecMidi;
-//      int currentPositionRecSamples;
-//      int lagPositionPredSamples;
-//      
-//      // For PausePlay Prediction
-//      juce::MidiMessageSequence unmatchedNotes_pred;
-//      juce::MidiMessageSequence unmatchedNotes_live;
+    std::cout << "predictionBufferIndex: " << predictionBufferIndex << std::endl;
+    std::cout << "predictionPlaybackIndex: " << predictionPlaybackIndex << std::endl;
+    std::cout << "currentBufferIndexLive: " << currentBufferIndexLive << std::endl;
+    std::cout << "currentPositionRecMidi: " << currentPositionRecMidi << std::endl;
+    std::cout << "currentPositionRecSamples: " << currentPositionRecSamples << std::endl;
+    std::cout << "lagPositionPredSamples: " << lagPositionPredSamples << std::endl;
       
-      // For Note Density Prediction
-//    float noteDensity_pred;
-//    float num_notes_predicted;
-//    float num_notes_network;
-//    float alpha; // alpha for tempo estimation
-//      int numBlocksForDensity;
-//      std::vector<int> prev50Pred;
-//      std::vector<int> prev50Live;
-//      int prev50PredIndex;
-//      int prev50LiveIndex;
+    // For Note Density Prediction
+    std::cout << "noteDensity_pred: " << noteDensity_pred << std::endl;
+    std::cout << "num_notes_predicted: " << num_notes_predicted << std::endl;
+    std::cout << "num_notes_network: " << num_notes_network << std::endl;
+    
 }
 
 
 /**
-    Reads a MIDI file and generates MIDI buffers for each block - returns as a vector of MIDI buffers.
-
-    This function reads a MIDI file and generates MIDI buffers for each block of audio.
-    Each MIDI buffer contains MIDI events corresponding to a specific block of audio samples.
-    The number of blocks is determined based on the sample rate and block size provided.
-
-    @param midiFile The MIDI file to read.
-    @param sampleRate The sample rate of the audio.
-    @param blockSize The size of each audio block.
-    @return A vector of MIDI buffers, where each buffer contains MIDI events corresponding to a block of audio.
-            The timestamps are stored in samples.
-            If an error occurs during file reading or processing, an empty vector is returned.
-*/
+ * @brief Reads a MIDI file and generates MIDI buffers for each block, returning them as a vector.
+ *
+ * This function reads a MIDI file and processes it into MIDI buffers, where each buffer corresponds
+ * to a block of audio samples. The MIDI events within each buffer are timestamped in samples. The
+ * function can handle speed adjustments and limit the number of blocks processed.
+ *
+ * @param midiFile The MIDI file to be read.
+ * @param sampleRate The sample rate of the audio, used for timestamp calculations.
+ * @param blockSize The size of each audio block in samples.
+ * @param maxBlocks The maximum number of blocks to process. If set to a negative value, there is no limit.
+ * @param speedShift A multiplier for the event timestamps. Values less than 1 speed up the MIDI, and values greater than 1 slow it down.
+ * @return A vector of MIDI buffers. Each buffer contains MIDI events for a corresponding block of audio.
+ *         Timestamps are stored in samples
+ *         If an error occurs during file reading or processing, an empty vector is returned.
+ */
 std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sampleRate, int blockSize, int maxBlocks = -1, double speedShift = 1.0)
 {
     juce::MidiFile midiFileData;
     juce::MidiBuffer loadedMidiBuffer;
 
+    // Attempt to open the MIDI file for reading
     juce::FileInputStream fileInputStream(midiFile);
 
     if (fileInputStream.openedOk())
     {
         if (midiFileData.readFrom(fileInputStream))
         {
-            midiFileData.convertTimestampTicksToSeconds(); // Convert units from ticks to seconds
+            // Convert units from ticks to seconds
+            midiFileData.convertTimestampTicksToSeconds();
+            
+            // Calculate the total number of blocks needed
             int numBlocks = static_cast<int>(midiFileData.getLastTimestamp() * speedShift * sampleRate / blockSize) + 1;
             if (maxBlocks > 0) {
                 numBlocks = std::min(numBlocks, maxBlocks);
             }
+            
+            // Initialize a vector of MIDI buffers with the calculated number of blocks
             std::vector<juce::MidiBuffer> midiBuffers(numBlocks); // Initialize vector
 
-            // For every track
+            // Process each track in the MIDI file
             for (int trackIndex = 0; trackIndex < midiFileData.getNumTracks(); ++trackIndex)
             {
                 const juce::MidiMessageSequence& track = *midiFileData.getTrack(trackIndex);
 
-                // For every MIDI event, add to the corresponding buffer
+                // For every MIDI event in the track, add to the corresponding buffer
                 for (int eventIndex = 0; eventIndex < track.getNumEvents(); ++eventIndex)
                 {
                     const juce::MidiMessage& midiMessage = track.getEventPointer(eventIndex)->message;
                     double timeStamp_sec = midiMessage.getTimeStamp(); // seconds
                     
+                    // Calculate the block index for the current event
                     int blockIndex = static_cast<int>(speedShift * timeStamp_sec * sampleRate / blockSize);
                     
+                    // If the block index exceeds the number of blocks, stop processing further
                     if (blockIndex >= numBlocks)
                         break;
 
@@ -263,6 +386,7 @@ std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sa
                 }
             }
 
+            // Return the vector of MIDI buffers
             return midiBuffers;
         }
         else
@@ -279,33 +403,59 @@ std::vector<juce::MidiBuffer> readMIDIFile(const juce::File& midiFile, double sa
     return {};
 }
 
-
+/**
+ * @brief Reads a MIDI file and generates a MIDI message sequence with adjusted timestamps.
+ *
+ * This function reads a MIDI file and creates a `juce::MidiMessageSequence` that contains all the
+ * MIDI events from the file. The events' timestamps are adjusted according to the provided
+ * sample rate and speed shift. The function handles errors gracefully, returning an empty
+ * sequence and logging errors if they occur.
+ *
+ * @param midiFile The MIDI file to read. This should be a valid JUCE `File` object representing the path to the MIDI file.
+ * @param sampleRate The sample rate of the audio, used to convert event timestamps from seconds to samples.
+ * @param speedShift A multiplier for the event timestamps. A value greater than 1.0 slows down the MIDI playback, while a value less than 1.0 speeds it up.
+ * @return A `juce::MidiMessageSequence` containing all the MIDI events from the file with adjusted timestamps.
+ *         If an error occurs during file reading or processing, an empty sequence is returned.
+ */
 juce::MidiMessageSequence readMIDIFile(const juce::File& midiFile, double sampleRate, double speedShift = 1)
 {
-    juce::MidiFile midiFileData;
-    juce::FileInputStream fileInputStream(midiFile);
+    juce::MidiFile midiFileData; // Object to hold the MIDI file data
+    juce::FileInputStream fileInputStream(midiFile); // Input stream to read the MIDI file
 
+    // Check if the file input stream opened successfully
     if (fileInputStream.openedOk())
     {
+        // Attempt to read the MIDI file
         if (midiFileData.readFrom(fileInputStream))
         {
+            // Convert MIDI timestamps from ticks to seconds for easier handling
             midiFileData.convertTimestampTicksToSeconds();
-            juce::MidiMessageSequence loadedMidiSequence;
+            
+            juce::MidiMessageSequence loadedMidiSequence; // Object to store the loaded MIDI messages
 
+            // Iterate through all tracks in the MIDI file
             for (int trackIndex = 0; trackIndex < midiFileData.getNumTracks(); ++trackIndex)
             {
                 const juce::MidiMessageSequence& track = *midiFileData.getTrack(trackIndex);
 
+                // Iterate through all events in the current track
                 for (int eventIndex = 0; eventIndex < track.getNumEvents(); ++eventIndex)
                 {
+                    // Get the MIDI message for the current event
                     const juce::MidiMessage& midiMessage = track.getEventPointer(eventIndex)->message;
+                    
+                    // Get the timestamp of the event in seconds
                     double timeStamp_sec = midiMessage.getTimeStamp(); // seconds
+                    
+                    // Convert the timestamp to samples
                     int timeStamp_samples = static_cast<int>(timeStamp_sec * sampleRate);
-
-                    // Add the MIDI message to the sequence
+                    
+                    // Adjust the timestamp according to the speed shift and add the event to the sequence
                     loadedMidiSequence.addEvent(midiMessage, speedShift*timeStamp_samples - timeStamp_sec);
                 }
             }
+            
+            // Return the loaded MIDI sequence
             return loadedMidiSequence;
         }
         else
@@ -322,102 +472,127 @@ juce::MidiMessageSequence readMIDIFile(const juce::File& midiFile, double sample
     return juce::MidiMessageSequence();
 }
 
+/**
+ * @brief Generates a MIDI buffer from a given MIDI message sequence within a specified range of samples.
+ *
+ * This function creates a `juce::MidiBuffer` from the provided `juce::MidiMessageSequence`.
+ * It adds MIDI messages to the buffer that occur within the current sample position up to the specified range.
+ * If the timestamps of the MIDI messages are out of order, an error message is printed.
+ *
+ * @param midiMessageSequence The sequence of MIDI messages to convert to a buffer.
+ * @param sampleRate The sample rate of the audio, used to interpret the message timestamps.
+ * @param readSamples The number of samples to read ahead from the current sample position.
+ * @return A `juce::MidiBuffer` containing the MIDI messages within the specified sample range.
+ *         The timestamps in the buffer are relative to the `currentPositionRecSamples`.
+ */
 juce::MidiBuffer PluginProcessor::generateMidiBuffer(const juce::MidiMessageSequence& midiMessageSequence, double sampleRate, int readSamples)
 {
-    juce::MidiBuffer midiBuffer;
+    juce::MidiBuffer midiBuffer; // Initialize an empty MIDI buffer
 
-    // Iterate over the MIDI events in the sequence
+    // Iterate over the MIDI events starting from the current position
     for (int eventIndex = currentPositionRecMidi; eventIndex < midiMessageSequence.getNumEvents(); ++eventIndex)
     {
+        // Get the MIDI message and its timestamp in samples
         const juce::MidiMessage& midiMessage = midiMessageSequence.getEventPointer(eventIndex)->message;
-        int timeStamp_samples = midiMessage.getTimeStamp();
-        
-        if (timeStamp_samples < currentPositionRecSamples) {
-            // Something is wrong
-            std::cout << std::endl << "ERROR IN TIMESTAMP COUNTING!" << std::endl;
+        int timeStamp_samples = midiMessage.getTimeStamp(); // Assuming timestamp is in samples
+
+        // Check for out-of-order timestamps
+        if (timeStamp_samples < currentPositionRecSamples)
+        {
+            std::cerr << "\nERROR IN TIMESTAMP COUNTING!" << std::endl; // warn user
         }
 
-        // Check if the event is within the range of the current sample position and two blocks ahead
+        // Check if the timestamp is within the current block range
         if (timeStamp_samples < currentPositionRecSamples + readSamples)
         {
-            // Add the MIDI message to the buffer
-            midiBuffer.addEvent(midiMessage, (timeStamp_samples - currentPositionRecSamples));
+            // Add the MIDI message to the buffer with a relative timestamp
+            midiBuffer.addEvent(midiMessage, timeStamp_samples - currentPositionRecSamples);
         }
         else
+        {
+            // If the timestamp exceeds the current block range, stop processing
             break;
+        }
     }
 
+    // Return the populated MIDI buffer
     return midiBuffer;
 }
 
-
-void PluginProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+/**
+ * @brief Prepares the processor for playback with the given sample rate and buffer size.
+ *
+ * This function initializes various parameters and resources required for playback.
+ * It loads MIDI files, sets up the synthesizer, and initializes variables for predictions and note density calculations.
+ *
+ * @param sampleRate The sample rate of the audio.
+ * @param samplesPerBlock The size of each audio block.
+ */
+void PluginProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
     if (DEBUG_FLAG) {
         std::cout << "Samples per Block = " << samplesPerBlock << "\n";
         std::cout << "SampleRate = " << sampleRate << "\n";
-        std::cout << "Number of blocks per second = " << sampleRate/samplesPerBlock << "\n";
+        std::cout << "Number of blocks per second = " << sampleRate / samplesPerBlock << "\n";
     }
-    
+
     // For testing
-    double speedChange = 2.0;
+    double speedChange = 0.5;
+
+    // Initialize live MIDI buffer if in live mode
     if (MODE == 0) {
-        auto myMidiFile_live = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
-            .getChildFile ("Contents")
-            .getChildFile ("Resources")
-            .getChildFile ("ladispute_paused.mid");
+        auto myMidiFile_live = juce::File::getSpecialLocation(juce::File::currentApplicationFile)
+            .getChildFile("Contents")
+            .getChildFile("Resources")
+            .getChildFile("ladispute_paused.mid");
         jassert(myMidiFile_live.existsAsFile());
         liveMidi = readMIDIFile(myMidiFile_live, sampleRate, samplesPerBlock);
         currentBufferIndexLive = 0;
-    }
-    else if (MODE==1) 
+    } else if (MODE == 1) {
         currentBufferIndexLive = -1;
-    
-    // First reading midi file for recorded practice performance
-    auto myMidiFile_rec = juce::File::getSpecialLocation (juce::File::currentApplicationFile)
-      .getChildFile ("Contents")
-      .getChildFile ("Resources")
-      .getChildFile ("ladispute_1.mid");
+    }
+
+    // Read recorded MIDI file for practice performance
+    auto myMidiFile_rec = juce::File::getSpecialLocation(juce::File::currentApplicationFile)
+            .getChildFile("Contents")
+            .getChildFile("Resources")
+            .getChildFile("ladispute_1.mid");
     jassert(myMidiFile_rec.existsAsFile());
     recordedMidiSequence = readMIDIFile(myMidiFile_rec, sampleRate, speedChange);
     currentPositionRecMidi = 0;
     currentPositionRecSamples = 0;
     lagPositionPredSamples = 0;
-    
-    // Setting lag and processing outputs till then - for demonstrating predictions in time with live
-    lag = 20; // num blocks
+
+    // Setting lag for predictions and processing outputs - for demonstrating predictions in time with live
+    lag = 20; // number of blocks
     std::vector<juce::MidiBuffer> recordedMidi = readMIDIFile(myMidiFile_rec, sampleRate, samplesPerBlock, lag, speedChange);
-    for(int i=0; i<lag; i++)
-    {
+    for (int i = 0; i < lag; i++) {
         prevPredictions.push_back(recordedMidi[i]);
         currentPositionRecMidi += recordedMidi[i].getNumEvents();
         currentPositionRecSamples += samplesPerBlock;
-        
-//        prevRecordedBlocks.push_back(recordedMidi[currentBufferIndexRec]);
-//        ++prevRecordedBlocksIndex;
     }
     predictionBufferIndex = 0;
     predictionPlaybackIndex = 0;
-    
-    // Prepare Synth
+
+    // Prepare Synthesizer
     synthAudioSource.prepareToPlay(samplesPerBlock, sampleRate);
-    
-    // For PausePlay Predictions
-    timeBetween = 0.2 * sampleRate; // samples
+
+    // Initialize parameters for PausePlay Predictions
+    timeBetween = 0.2 * sampleRate; // in samples
     unmatchedNotes_pred.clear();
     unmatchedNotes_live.clear();
-    
-    // For Note Density Prediction
+
+    // Initialize parameters for Note Density Prediction
     noteDensity_pred = 1;
     num_notes_predicted = 0;
     num_notes_network = 0;
     alpha = 0.99;
-    numBlocksForDensity = 10 * sampleRate/samplesPerBlock; // Convert seconds to blocks // How to set?
+    numBlocksForDensity = 10 * sampleRate / samplesPerBlock; // Convert seconds to blocks
     prev50Pred = std::vector<int>(numBlocksForDensity);
     prev50Live = std::vector<int>(numBlocksForDensity);
     prev50PredIndex = 0;
     prev50LiveIndex = 0;
-    
+
     if (DEBUG_FLAG) {
         p50b(recordedMidi, "recordedMidiBuffers", 50);
         p50b(liveMidi, "liveMidi", 50);
@@ -461,18 +636,32 @@ bool PluginProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 }
 #endif
 
+/**
+ * @brief Combines MIDI events from buffer b into buffer a with an optional note offset.
+ *
+ * This function combines MIDI events from buffer b into buffer a. If a note offset is specified,
+ * note on events in buffer b will be transposed by the specified offset before being added to buffer a.
+ *
+ * @param a The destination MIDI buffer where events will be added.
+ * @param b The source MIDI buffer containing events to be combined.
+ * @param numSamples The maximum number of samples to process from buffer b (-1 to process all).
+ * @param noteOffset The offset to apply to note events from buffer b before adding them to buffer a.
+ *                   If set to 0 (default), events are added without modification.
+ */
 void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, int numSamples = -1, int noteOffset = 0)
 {
+    // If noteOffset is 0, simply add events from buffer b to buffer a without modification
     if (noteOffset == 0) {
         a.addEvents(b, 0, numSamples, 0);
         return;
     }
     
-    // Iterate over each event in buffer b for implementing with note offset
-    for (const auto meta: b)
+    // Iterate over each event in buffer b
+    for (const auto meta : b)
     {
         const juce::MidiMessage m = meta.getMessage();
         
+        // Break loop if numSamples is specified and current event timestamp exceeds it
         if (numSamples > 0 && m.getTimeStamp() > numSamples)
             break;
         
@@ -480,7 +669,8 @@ void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, in
         if (m.isNoteOnOrOff())
         {
             const juce::uint8 vel = m.getVelocity();
-            juce::MidiMessage newMsg = juce::MidiMessage::noteOn(m.getChannel(),m.getNoteNumber() + noteOffset,vel);
+            // Create a new note on message with the note offset applied
+            juce::MidiMessage newMsg = juce::MidiMessage::noteOn(m.getChannel(), m.getNoteNumber() + noteOffset, vel);
             
             // Add the new message to buffer a with the original timestamp
             a.addEvent(newMsg, m.getTimeStamp());
@@ -494,55 +684,65 @@ void PluginProcessor::combineEvents(juce::MidiBuffer& a, juce::MidiBuffer& b, in
 }
 
 /**
-    Searches for a MIDI note in the live buffer and returns a pause flag for checkIfPause.
-
-    This function searches for a MIDI note in the live buffer (`unmatchedNotes_live`).
-    If the note is found, it deletes the corresponding event from the buffer.
-    If the note is not found, it sets the pause flag to true.
-
-    @param m The MIDI message representing the note to search for.
-    @return True if the note is  found in the live buffer,
-            False if the note is not found in the live buffer.
-*/
-bool PluginProcessor::searchLive(juce::MidiMessage m) { // New version to allow interchanged notes that should be simultaneous
-    bool found = false; // Flag to indicate if note is found
+ * @brief Searches for a MIDI note in the live buffer and returns a found flag.
+ *
+ * This function searches for a MIDI note in the live buffer (`unmatchedNotes_live`).
+ * If the note is found, it deletes the corresponding event from the buffer and returns true.
+ * If the note is not found, it returns false.
+ *
+ * @param m The MIDI message representing the note to search for.
+ * @return True if the note is found in the live buffer, false otherwise.
+ */
+bool PluginProcessor::searchLive(juce::MidiMessage m) {
+    bool found = false; // Flag to indicate if the note is found
     juce::MidiMessage mLive;
-    for (int i=0; i<unmatchedNotes_live.getNumEvents(); i++) {
+
+    // Iterate over the events in the live buffer
+    for (int i = 0; i < unmatchedNotes_live.getNumEvents(); i++) {
         mLive = unmatchedNotes_live.getEventPointer(i)->message;
         
-        if (mLive.getTimeStamp() - timeAdjLive < m.getTimeStamp() - timeBetween - timeAdjPred) { // Also need to take into account how much live and prediction are out of sync by
+        // Check if the live event timestamp is within the acceptable time range
+        if (mLive.getTimeStamp() - timeAdjLive < m.getTimeStamp() - timeBetween - timeAdjPred) { // TO DO: Also need to take into account how much live and prediction are out of sync by
+            // If the live event is too far ahead of the predicted event, stop searching
+            
 //            unmatchedNotes_live.deleteEvent(i,0);
 //            i--;
 //            std::cout << std::endl << "\nExtra Note found in LIVE!!" << std::endl;
 //            std::cout << "DELETED EVENT" << std::endl;
 //            break;
         }
+
+        // Check if the live event timestamp is after the predicted event timestamp
         if (mLive.getTimeStamp() - timeAdjLive > m.getTimeStamp() - timeAdjPred) {
+            // If the live event is beyond the predicted event, stop searching
             break;
         }
-        if (mLive.getNoteNumber() == m.getNoteNumber())
-        {
-            found = true; // Note Found
-            unmatchedNotes_live.deleteEvent(i,0);
-            return found;
+
+        // Check if the note numbers match
+        if (mLive.getNoteNumber() == m.getNoteNumber()) {
+            // If the note is found, delete the event from the live buffer and set found to true
+            found = true;
+            unmatchedNotes_live.deleteEvent(i, 0);
+            break;
         }
     }
-    // If note not found, set pause flag
+
+    // Return the result indicating whether the note is found
     return found;
 }
 
 /**
-    Checks if the processing should be paused based on the MIDI buffers.
-    
-    This function compares the MIDI events in the prediction buffer (`predBuffer`) with
-    the events in the live buffer (`liveBuffer`). It determines whether the processing
-    should be paused based on the availability and matching of MIDI events between the two buffers.
-    
-    @param predBuffer The MIDI buffer containing predicted MIDI events.
-    @param liveBuffer The MIDI buffer containing live MIDI events.
-    @param blockSize The number of samples in every block
-    @return True if the processing should be paused, false otherwise.
-*/
+ * @brief Checks if the processing should be paused based on the MIDI buffers.
+ *
+ * This function compares the MIDI events in the prediction buffer (`predBuffer`) with
+ * the events in the live buffer (`liveBuffer`). It determines whether the processing
+ * should be paused based on the availability and matching of MIDI events between the two buffers.
+ *
+ * @param predBuffer The MIDI buffer containing predicted MIDI events.
+ * @param liveBuffer The MIDI buffer containing live MIDI events.
+ * @param blockSize The number of samples in every block.
+ * @return True if the processing should be paused, false otherwise.
+ */
 bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer, int blockSize)
 {
     // TO DO: Use timestamp difference between some section of music for more accurate
@@ -618,6 +818,15 @@ bool PluginProcessor::checkIfPause(juce::MidiBuffer& predBuffer, juce::MidiBuffe
     return pause;
 }
 
+/**
+ * @brief Updates the note density based on MIDI buffers.
+ *
+ * This function calculates the note density using MIDI events from prediction buffer (`predBuffer`)
+ * and live buffer (`liveBuffer`). It maintains a moving window of MIDI events to track changes in note density over time.
+ *
+ * @param predBuffer The MIDI buffer containing predicted MIDI events.
+ * @param liveBuffer The MIDI buffer containing live MIDI events.
+ */
 void PluginProcessor::updateNoteDensity(juce::MidiBuffer& predBuffer, juce::MidiBuffer& liveBuffer) {
     // TO DO: Use timestamp difference of x notes rather than number of notes in a timeframe
     // TO DO: Implement some kind of exponential weight decay in timestamp differences? Take into account current async with live, its improvement/ depreciation wrt previous predictions and also the rate of change (improvement)
@@ -637,6 +846,16 @@ void PluginProcessor::updateNoteDensity(juce::MidiBuffer& predBuffer, juce::Midi
     noteDensity_pred = alpha * noteDensity_pred + (1-alpha) * noteDensity_pred * noteDensity_network;
 }
 
+/**
+ * @brief Updates the recorded and live MIDI buffers for processing.
+ *
+ * This function updates the recorded and live MIDI buffers used for processing.
+ * It generates the recorded buffer based on the recorded MIDI sequence and current note density prediction.
+ * The live buffer is updated based on the selected mode: either from pre-loaded MIDI data or real-time MIDI input.
+ *
+ * @param blockSize The size of each audio block.
+ * @param midiMessages The MIDI buffer containing live MIDI events.
+ */
 void PluginProcessor::getBuffers(int blockSize, juce::MidiBuffer& midiMessages) {
     recordedBuffer = generateMidiBuffer(recordedMidiSequence, getSampleRate(), ((int)noteDensity_pred+1)*blockSize); // read req blocks of rec data
     if (MODE == 0)
@@ -662,6 +881,20 @@ void PluginProcessor::getBuffers(int blockSize, juce::MidiBuffer& midiMessages) 
     //    }
 }
 
+/**
+ * @brief Sets prediction variables based on the prediction case.
+ *
+ * This function sets prediction variables based on the selected prediction case.
+ * It handles different prediction scenarios such as simple playback, pausing when no input is seen,
+ * and implementing rough tempo tracking.
+ *
+ * @param predictionCase The selected prediction case:
+ *                      - 1: Simplest prediction case - playback recording as is.
+ *                      - 2: Pause when no input seen.
+ *                      - 3: Implement rough tempo tracking.
+ * @param numSamples The number of samples in every block.
+ * @return True if the processing should be paused, false otherwise.
+ */
 bool PluginProcessor::setPredictionVariables(int predictionCase, int numSamples) {
 
     bool paused = false;
@@ -696,6 +929,17 @@ bool PluginProcessor::setPredictionVariables(int predictionCase, int numSamples)
     return paused;
 }
 
+/**
+ * @brief Generates MIDI prediction buffer based on the recorded buffer and current tempo.
+ *
+ * This function generates a MIDI prediction buffer based on the recorded MIDI buffer and the current tempo.
+ * It processes each MIDI event from the recorded buffer according to the current tempo and adds it to the prediction buffer.
+ * If the processing is paused, an empty buffer is returned.
+ *
+ * @param numSamples The number of samples in every block.
+ * @param paused Flag indicating if processing is paused.
+ * @return The generated MIDI prediction buffer.
+ */
 juce::MidiBuffer PluginProcessor::generate_prediction(int numSamples, bool paused) {
     int time_samp;
     juce::MidiMessage m;
@@ -727,6 +971,16 @@ juce::MidiBuffer PluginProcessor::generate_prediction(int numSamples, bool pause
     return midiPrediction;
 }
 
+/**
+ * @brief Processes a block of audio.
+ *
+ * This function processes an audio block, handling MIDI messages and generating predictions for playback.
+ * It combines recorded MIDI buffers with live MIDI events and prediction buffers to synthesize audio.
+ * The processing behavior is determined based on the prediction case set.
+ *
+ * @param buffer The audio buffer to process.
+ * @param midiMessages The MIDI buffer containing incoming MIDI events.
+ */
 void PluginProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     if (sampleRate_ == 0.0) {

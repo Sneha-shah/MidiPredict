@@ -96,7 +96,7 @@ private:
   void runUnitTests(bool runAll = false);
     
     volatile float sampleRate_;
-    int MODE = 1; // 0 -> Testing (Live from file), 1 -> Live from buffer
+    int MODE = 0; // 0 -> Testing (Live from file), 1 -> Live from buffer
     
     // For file reading and data storage
   std::vector<juce::MidiBuffer> prevPredictions;
